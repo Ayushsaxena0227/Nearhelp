@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../../utils/firebase";
 import {
   Users,
   Heart,
@@ -21,33 +22,45 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-// Mock auth object for demo
-const mockAuth = {
-  currentUser: {
-    displayName: "Sarah Johnson",
-    email: "sarah@example.com",
-  },
-  signOut: () => console.log("Signing out..."),
-};
-
-// Login Component
-function Login() {
+export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const googleLogin = async () => {
-    setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => setIsLoading(false), 1000);
+    console.log("Google login will be implemented later.");
   };
 
   const emailLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => setIsLoading(false), 1000);
+    setError("");
+    try {
+      // 1️⃣ Firebase Auth login
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+
+      // 2️⃣ Get token
+      const token = await userCred.user.getIdToken();
+
+      // 3️⃣ Backend /status validation
+      const res = await fetch("http://localhost:5007/users/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      console.log("Backend status check:", data);
+      if (res.ok && data.uid) {
+        console.log("User profile:", data);
+        window.location.href = "/home";
+      } else {
+        setError("Login failed. Please try again.");
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -61,9 +74,6 @@ function Login() {
             </div>
             <span className="text-xl font-bold text-gray-800">NeighborHub</span>
           </div>
-          {/* <a href="/signup" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
-            Need an account?
-          </a> */}
         </div>
       </div>
 
@@ -200,6 +210,10 @@ function Login() {
                   </a>
                 </div>
 
+                {error && (
+                  <p className="text-red-500 text-sm text-center">{error}</p>
+                )}
+
                 <button
                   type="submit"
                   disabled={isLoading}
@@ -232,5 +246,3 @@ function Login() {
     </div>
   );
 }
-
-export default Login;

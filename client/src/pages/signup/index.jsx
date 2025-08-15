@@ -20,12 +20,51 @@ export default function Signup() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSignup = async (e) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => setIsLoading(false), 1000);
+    setError("");
+    try {
+      const userCred = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const token = await userCred.user.getIdToken();
+
+      const res = await fetch("http://localhost:5007/users/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name,
+          phone,
+          location: null,
+          skills: [],
+          badges: [],
+        }),
+      });
+
+      const data = await res.json();
+      console.log("User profile creation:", data);
+
+      if (res.ok) {
+        window.location.href = "/home";
+      } else {
+        setError(data.error || "Signup failed");
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -128,7 +167,7 @@ export default function Signup() {
                   </div>
                 </div>
 
-                <div className="text-sm text-gray-600">
+                {/* <div className="text-sm text-gray-600">
                   <label className="flex items-start space-x-2">
                     <input
                       type="checkbox"
@@ -145,7 +184,11 @@ export default function Signup() {
                       </a>
                     </span>
                   </label>
-                </div>
+                </div> */}
+
+                {error && (
+                  <p className="text-red-500 text-sm text-center">{error}</p>
+                )}
 
                 <button
                   type="submit"
