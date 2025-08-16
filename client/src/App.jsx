@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Home from "./pages/Home";
 import ProtectedRoute from "./contexts/ProtectedRoute";
+import MyApplications from "./pages/Application";
 
 function App() {
   return (
@@ -18,7 +19,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Home />
-            //{" "}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-applications"
+        element={
+          <ProtectedRoute>
+            <MyApplications />
           </ProtectedRoute>
         }
       />

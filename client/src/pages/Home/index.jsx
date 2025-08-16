@@ -9,9 +9,13 @@ import {
   Plus,
   LogOut,
 } from "lucide-react";
-import { getNeeds } from "../../api/need";
+import { getNeeds } from "../../api/need"; // this uses axios now
 import { formatDistanceToNow } from "date-fns";
 import NewPostModal from "../../components/NewPostModal";
+import ApplyModal from "../../components/ApplyModal"; // new modal for applying
+import axios from "axios";
+import { Link } from "react-router-dom";
+import { getApplicationsForOwner } from "../../api/application";
 
 export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -19,23 +23,23 @@ export default function Home() {
   const [profile, setProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [posts, setPosts] = useState([]);
-  const [loadingPosts, setLoadingPosts] = useState(true); // ✅ NEW
+  const [loadingPosts, setLoadingPosts] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [activeNeed, setActiveNeed] = useState(null);
 
-  // Load profile
   useEffect(() => {
     const fetchProfile = async () => {
       const token = await auth.currentUser.getIdToken();
-      const res = await fetch("http://localhost:5007/users/me", {
+      const res = await axios.get("http://localhost:5007/users/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      setProfile(data);
+      setProfile(res.data);
       setLoadingProfile(false);
     };
     fetchProfile();
   }, []);
 
+  // Load posts with loader
   const loadPosts = async () => {
     setLoadingPosts(true);
     const data = await getNeeds();
@@ -47,6 +51,7 @@ export default function Home() {
     loadPosts();
   }, []);
 
+  // Name & initials
   let displayName =
     profile?.name || auth.currentUser?.displayName || auth.currentUser?.email;
   let initials = displayName
@@ -62,7 +67,20 @@ export default function Home() {
     await auth.signOut();
     window.location.href = "/login";
   };
+  const [appCount, setAppCount] = useState(0);
 
+  useEffect(() => {
+    const loadCount = async () => {
+      const apps = await getApplicationsForOwner();
+      setAppCount(apps.filter((a) => a.status === "pending").length);
+    };
+    loadCount();
+    // Optional: poll every 30s or use real-time listener
+    const iv = setInterval(loadCount, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Skeleton Post Loader
   const PostSkeleton = () => (
     <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
       <div className="flex items-center space-x-3 mb-4">
@@ -116,7 +134,7 @@ export default function Home() {
                 <Settings className="w-5 h-5" />
               </button>
 
-              {/* New Post */}
+              {/* New Post Button */}
               <button
                 onClick={() => setShowModal(true)}
                 className="px-4 py-2 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-xl hover:opacity-90 flex items-center space-x-2"
@@ -125,7 +143,7 @@ export default function Home() {
                 <span>New Post</span>
               </button>
 
-              {/* Profile */}
+              {/* Profile Dropdown */}
               <div
                 className="flex items-center space-x-2 cursor-pointer"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -146,7 +164,13 @@ export default function Home() {
               </div>
 
               {dropdownOpen && (
-                <div className="absolute top-12 right-0 bg-white rounded-md shadow-lg w-40">
+                <div className="absolute top-12 right-0 bg-white rounded-md shadow-lg w-48">
+                  <Link
+                    to="/my-applications"
+                    className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                  >
+                    My Applications
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="flex items-center px-4 py-2 w-full text-left hover:bg-gray-100"
@@ -163,7 +187,6 @@ export default function Home() {
       {/* Body */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loadingPosts ? (
-          // Show 3 skeletons while loading
           <div className="space-y-6">
             <PostSkeleton />
             <PostSkeleton />
@@ -199,17 +222,31 @@ export default function Home() {
                 </div>
                 <h3 className="text-lg font-medium mb-2">{post.title}</h3>
                 <p className="text-gray-600 mb-4">{post.description}</p>
+
+                {/* Offer Help Button if post is not owned by logged-in user */}
+                {auth.currentUser?.uid !== post.ownerUid && (
+                  <button
+                    onClick={() => setActiveNeed(post.needId)}
+                    className="px-3 cursor-pointer py-1 text-sm bg-gradient-to-r from-blue-600 to-green-600 text-white rounded"
+                  >
+                    Offer Help
+                  </button>
+                )}
               </div>
             ))}
           </div>
         )}
       </main>
 
+      {/* Modals */}
       {showModal && (
         <NewPostModal
           onClose={() => setShowModal(false)}
           onPostCreated={loadPosts}
         />
+      )}
+      {activeNeed && (
+        <ApplyModal needId={activeNeed} onClose={() => setActiveNeed(null)} />
       )}
     </div>
   );

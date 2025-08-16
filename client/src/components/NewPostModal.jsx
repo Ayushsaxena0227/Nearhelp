@@ -64,9 +64,19 @@ export default function NewPostModal({ onClose, onPostCreated }) {
             onChange={(e) => setCategory(e.target.value)}
           >
             <option value="">Select category</option>
-            <option value="repair">Repair Help</option>
-            <option value="tutoring">Tutoring</option>
-            <option value="errands">Errands</option>
+            <option value="repair">Repair & Maintenance</option>
+            <option value="tutoring">Tutoring & Education</option>
+            <option value="errands">Errands & Delivery</option>
+            <option value="gardening">Gardening & Landscaping</option>
+            <option value="it_support">IT Support / Tech Help</option>
+            <option value="construction">Construction & Carpentry</option>
+            <option value="cleaning">Cleaning & Housekeeping</option>
+            <option value="event_help">Event Assistance</option>
+            <option value="pet_care">Pet Care</option>
+            <option value="transport">Transport / Moving</option>
+            <option value="cooking">Cooking & Meal Prep</option>
+            <option value="design">Design & Creative Work</option>
+            <option value="healthcare">Healthcare / Elderly Care</option>
           </select>
 
           <textarea
@@ -77,7 +87,6 @@ export default function NewPostModal({ onClose, onPostCreated }) {
             onChange={(e) => setDescription(e.target.value)}
           ></textarea>
 
-          {/* Success message */}
           {success && (
             <p className="text-green-600 font-medium text-sm">
               ✅ Post created successfully!
