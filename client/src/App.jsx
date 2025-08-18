@@ -2,9 +2,11 @@ import React from "react";
 import { Route, Routes } from "react-router-dom";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
-import Home from "./pages/Home";
 import ProtectedRoute from "./contexts/ProtectedRoute";
 import MyApplications from "./pages/Application";
+import Chat from "./pages/Chat";
+import Matches from "./pages/Match";
+import HomePage from "./pages/Home";
 
 function App() {
   return (
@@ -18,7 +20,7 @@ function App() {
         path="/home"
         element={
           <ProtectedRoute>
-            <Home />
+            <HomePage />
           </ProtectedRoute>
         }
       />
@@ -27,6 +29,22 @@ function App() {
         element={
           <ProtectedRoute>
             <MyApplications />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/matches"
+        element={
+          <ProtectedRoute>
+            <Matches />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/chat/:matchId"
+        element={
+          <ProtectedRoute>
+            <Chat />
           </ProtectedRoute>
         }
       />
