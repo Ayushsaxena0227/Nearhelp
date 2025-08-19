@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { getNeeds } from "../../api/need";
-import { getApplicationsForOwner, applyToNeed } from "../../api/application";
+import {
+  getApplicationsForOwner,
+  applyToNeed,
+  getApplicationsByHelper,
+} from "../../api/application";
 import {
   Users,
   Search,
@@ -40,6 +44,7 @@ export default function HomePage() {
   const [showModal, setShowModal] = useState(false);
   const [activeNeed, setActiveNeed] = useState(null);
   const [appCount, setAppCount] = useState(0);
+  const [appliedNeedIds, setAppliedNeedIds] = useState(new Set());
 
   // 1) Fetch user profile from backend - your exact implementation
   useEffect(() => {
@@ -53,6 +58,21 @@ export default function HomePage() {
     };
     fetchProfile();
   }, []);
+
+  const fetchMyApplications = async () => {
+    if (!user) return;
+    const mySentApplications = await getApplicationsByHelper();
+    console.log(mySentApplications);
+    const ids = new Set(mySentApplications.map((app) => app.needId));
+    setAppliedNeedIds(ids);
+  };
+  useEffect(() => {
+    fetchMyApplications();
+  }, [user]);
+  const handleApplySuccess = () => {
+    setActiveNeed(null); // Close the modal
+    fetchMyApplications(); // Re-fetch your applications to update the UI
+  };
 
   // 2) Load posts with loader - your exact implementation
   const loadPosts = async () => {
@@ -353,15 +373,22 @@ export default function HomePage() {
                   </p>
 
                   <div className="flex justify-end">
-                    {/* Offer Help Button if post is not owned by logged-in user */}
                     {auth.currentUser?.uid !== post.ownerUid ? (
-                      <button
-                        onClick={() => setActiveNeed(post.needId)}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center space-x-2"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Offer Help</span>
-                      </button>
+                      // 👇 This is the modified block
+                      appliedNeedIds.has(post.needId) ? (
+                        <span className="inline-flex items-center text-sm font-medium text-blue-600">
+                          <CheckCircle className="w-4 h-4 mr-1.5" />
+                          Applied
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setActiveNeed(post.needId)}
+                          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center space-x-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Offer Help</span>
+                        </button>
+                      )
                     ) : (
                       <span className="inline-flex items-center text-sm text-gray-500">
                         <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
@@ -384,7 +411,11 @@ export default function HomePage() {
         />
       )}
       {activeNeed && (
-        <ApplyModal needId={activeNeed} onClose={() => setActiveNeed(null)} />
+        <ApplyModal
+          needId={activeNeed}
+          onClose={() => setActiveNeed(null)}
+          onApplySuccess={handleApplySuccess} // Pass the success handler here
+        />
       )}
     </div>
   );

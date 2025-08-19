@@ -8,17 +8,19 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function MyApplications() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all"); // all, pending, accepted, rejected
+  const [filter, setFilter] = useState("all");
+  const navigate = useNavigate();
 
   const load = async () => {
     setLoading(true);
     try {
       const data = await getApplicationsForOwner();
-      console.log("Applications data:", data);
+      // console.log("Applications data:", data);
       setApplications(data);
     } catch (error) {
       console.error("Error loading applications:", error);
@@ -29,6 +31,15 @@ export default function MyApplications() {
   useEffect(() => {
     load();
   }, []);
+  const handleApplicationAccepted = (matchId) => {
+    if (matchId) {
+      // If a matchId is returned, navigate directly to the chat
+      navigate(`/chat/${matchId}`);
+    } else {
+      // Otherwise, just refresh the list (fallback)
+      load();
+    }
+  };
 
   // Filter applications based on selected filter
   const filteredApplications = applications.filter((app) => {
@@ -251,6 +262,7 @@ export default function MyApplications() {
           <ApplicationsList
             applications={filteredApplications}
             onStatusChange={load}
+            onApplicationAccepted={handleApplicationAccepted}
           />
         )}
       </div>

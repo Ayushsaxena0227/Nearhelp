@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { createNeed } from "../api/need";
+import { X, PlusCircle, CheckCircle } from "lucide-react";
 
 export default function NewPostModal({ onClose, onPostCreated }) {
   const [title, setTitle] = useState("");
@@ -8,113 +9,104 @@ export default function NewPostModal({ onClose, onPostCreated }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Check if all fields have a value
   const isFormValid = title.trim() && category.trim() && description.trim();
 
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!isFormValid) return;
-
     setLoading(true);
+
     try {
       await createNeed({ title, category, description });
-
-      // Show success message
       setSuccess(true);
-
-      // Delay closing so user sees success
       setTimeout(() => {
-        setSuccess(false);
-        onPostCreated(); // Refresh posts list in parent
-        onClose(); // Close modal
-      }, 1500);
+        onPostCreated();
+        onClose();
+      }, 1500); // Wait 1.5s before closing
     } catch (err) {
       console.error("Error creating post:", err);
+      // You could add an error state here as well
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/20 backdrop-blur-sm">
-      {/* Modal Card */}
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 animate-[fadeInUp_0.3s_ease-out_forwards]">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Create New Post</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-lg font-bold"
-          >
-            ✕
-          </button>
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg relative animate-fade-in-up">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <X size={24} />
+        </button>
+
+        <div className="mb-6 text-center">
+          <h2 className="text-2xl font-bold text-gray-800">
+            Create a New Help Request
+          </h2>
+          <p className="text-gray-500 mt-1">
+            Clearly describe what you need help with to get the best responses.
+          </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleCreate} className="space-y-4">
-          <input
-            className="border w-full px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            placeholder="Post title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-
-          <select
-            className="border w-full px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="">Select category</option>
-            <option value="repair">Repair & Maintenance</option>
-            <option value="tutoring">Tutoring & Education</option>
-            <option value="errands">Errands & Delivery</option>
-            <option value="gardening">Gardening & Landscaping</option>
-            <option value="it_support">IT Support / Tech Help</option>
-            <option value="construction">Construction & Carpentry</option>
-            <option value="cleaning">Cleaning & Housekeeping</option>
-            <option value="event_help">Event Assistance</option>
-            <option value="pet_care">Pet Care</option>
-            <option value="transport">Transport / Moving</option>
-            <option value="cooking">Cooking & Meal Prep</option>
-            <option value="design">Design & Creative Work</option>
-            <option value="healthcare">Healthcare / Elderly Care</option>
-          </select>
-
-          <textarea
-            className="border w-full px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-            rows={4}
-            placeholder="Description..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          ></textarea>
-
-          {success && (
-            <p className="text-green-600 font-medium text-sm">
-              ✅ Post created successfully!
+        {success ? (
+          <div className="text-center py-10">
+            <CheckCircle className="mx-auto text-green-500 h-16 w-16" />
+            <h3 className="mt-4 text-xl font-semibold text-gray-800">
+              Post Created!
+            </h3>
+            <p className="text-gray-500 mt-1">
+              Your request is now live for the community.
             </p>
-          )}
-
-          {/* Footer actions */}
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!isFormValid || loading}
-              className={`px-4 py-2 rounded-lg text-white transition ${
-                isFormValid
-                  ? "bg-gradient-to-r from-blue-600 to-green-600 hover:opacity-90"
-                  : "bg-gray-400 cursor-not-allowed"
-              }`}
-            >
-              {loading ? "Posting..." : "Post"}
-            </button>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={handleCreate} className="space-y-4">
+            <input
+              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+              placeholder="e.g., Need help moving a couch"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+
+            <select
+              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="">Select a category...</option>
+              {/* Your other options */}
+              <option value="transport">Transport / Moving</option>
+              <option value="it_support">IT Support / Tech Help</option>
+              <option value="gardening">Gardening & Landscaping</option>
+            </select>
+
+            <textarea
+              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-shadow"
+              rows={4}
+              placeholder="Add more details: location, urgency, specific skills needed..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!isFormValid || loading}
+                className="flex items-center justify-center px-6 py-2.5 rounded-lg text-white font-semibold bg-gradient-to-r from-blue-500 to-green-500 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              >
+                {loading ? "Posting..." : "Create Post"}
+                {!loading && <PlusCircle className="ml-2" size={18} />}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

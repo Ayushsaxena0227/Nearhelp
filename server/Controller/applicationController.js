@@ -194,6 +194,7 @@ export const updateApplicationStatus = async (req, res) => {
     let matchId = null;
     if (status === "accepted") {
       matchId = uuidv4();
+      console.log(`✅ ACCEPTED: Creating match with ID: ${matchId}`);
       await admin.firestore().collection("matches").doc(matchId).set({
         matchId,
         needId: appData.needId,
@@ -201,11 +202,36 @@ export const updateApplicationStatus = async (req, res) => {
         helperUid: appData.helperUid,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+
+      // ✅ THE FIX: Update the original application with the new status AND matchId
+      await appRef.update({ status: "accepted", matchId: matchId });
+      console.log(`✅ SUCCESS: Saved matchId to application document.`);
+    } else {
+      // If rejected, just update the status
+      await appRef.update({ status: "rejected" });
     }
 
     return res.status(200).json({ message: `Application ${status}`, matchId });
   } catch (err) {
     console.error("updateApplicationStatus error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getApplicationsByHelper = async (req, res) => {
+  try {
+    const helperUid = req.user.uid;
+    const snapshot = await admin
+      .firestore()
+      .collection("applications")
+      .where("helperUid", "==", helperUid)
+      .get();
+
+    const apps = snapshot.docs.map((doc) => doc.data());
+
+    return res.status(200).json(apps);
+  } catch (err) {
+    console.error("getApplicationsByHelper error:", err);
     return res.status(500).json({ error: err.message });
   }
 };

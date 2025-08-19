@@ -46,3 +46,16 @@ export const updateApplicationStatus = async (appId, status) => {
   );
   return res.data;
 };
+
+export const getApplicationsByHelper = async () => {
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const res = await axios.get(`${API_BASE}/applications/by-helper`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching applications by helper:", error);
+    return []; // Return empty array on error
+  }
+};
