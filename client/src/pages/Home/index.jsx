@@ -62,7 +62,7 @@ export default function HomePage() {
   const fetchMyApplications = async () => {
     if (!user) return;
     const mySentApplications = await getApplicationsByHelper();
-    console.log(mySentApplications);
+    // console.log(mySentApplications);
     const ids = new Set(mySentApplications.map((app) => app.needId));
     setAppliedNeedIds(ids);
   };

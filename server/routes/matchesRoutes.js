@@ -4,6 +4,7 @@ import {
   listMatchesForUser,
   getMessages,
   sendMessage,
+  getMatchDetails,
 } from "../Controller/matchesController.js";
 
 const router = express.Router();
@@ -16,5 +17,7 @@ router.get("/:matchId/messages", verifyFirebaseToken, getMessages);
 
 // 3) Send a new message in a match
 router.post("/:matchId/messages", verifyFirebaseToken, sendMessage);
+
+router.get("/:matchId", verifyFirebaseToken, getMatchDetails);
 
 export default router;

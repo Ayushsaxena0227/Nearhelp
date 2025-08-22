@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getMatchesForUser } from "../../api/matches";
 import { Link } from "react-router-dom";
-import { MessageSquare, Users, Clock, ArrowRight } from "lucide-react";
+import { MessageSquare, Users, Clock, ArrowRight, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Matches() {

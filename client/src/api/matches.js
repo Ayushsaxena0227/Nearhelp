@@ -18,6 +18,14 @@ export const getMessages = async (matchId) => {
   });
   return res.data;
 };
+export const getMatchDetailsAPI = async (matchId) => {
+  ``;
+  const token = await auth.currentUser.getIdToken();
+  const res = await axios.get(`${API}/matches/${matchId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+};
 
 export const sendMessage = async (matchId, text) => {
   const token = await auth.currentUser.getIdToken();

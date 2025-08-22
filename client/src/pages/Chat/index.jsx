@@ -21,6 +21,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth } from "../../utils/firebase";
+import { getMatchDetailsAPI } from "../../api/matches";
 
 export default function Chat() {
   const { matchId } = useParams();
@@ -59,25 +60,20 @@ export default function Chat() {
     inputRef.current?.focus();
   }, []);
 
-  // TODO: Fetch match details from your backend
-  // For now using basic data structure
   useEffect(() => {
-    // You might want to add an API call here to get match details
-    // const fetchMatchDetails = async () => {
-    //   const matchData = await getMatchDetails(matchId);
-    //   setMatch(matchData);
-    // };
-    // fetchMatchDetails();
+    if (!matchId) return;
 
-    // Temporary match data - replace with your API call
-    setMatch({
-      matchId: matchId,
-      otherName: "Helper", // You'll get this from your backend
-      otherInitials: "H",
-      needTitle: "Help Request",
-      status: "active",
-      lastSeen: "Recently",
-    });
+    const fetchMatchDetails = async () => {
+      try {
+        const matchData = await getMatchDetailsAPI(matchId);
+        console.log(matchData);
+        setMatch(matchData);
+      } catch (error) {
+        console.error("Failed to fetch match details:", error);
+      }
+    };
+
+    fetchMatchDetails();
   }, [matchId]);
 
   const handleSend = async (e) => {
@@ -127,12 +123,14 @@ export default function Chat() {
 
           <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center">
             <span className="text-white font-medium text-sm">
-              {match.otherInitials}
+              {match.otherUserInitials}
             </span>
           </div>
 
           <div>
-            <h2 className="font-semibold text-gray-900">{match.otherName}</h2>
+            <h2 className="font-semibold text-gray-900">
+              {match.otherUserName}
+            </h2>
             <p className="text-xs text-gray-500">
               {typing ? (
                 <span className="flex items-center">
@@ -229,7 +227,7 @@ export default function Chat() {
                     {!isOwnMessage && (
                       <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center flex-shrink-0">
                         <span className="text-white font-medium text-xs">
-                          {match.otherInitials}
+                          {match.otherUserInitials}
                         </span>
                       </div>
                     )}

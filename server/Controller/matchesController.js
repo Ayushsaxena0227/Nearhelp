@@ -131,3 +131,63 @@ export const sendMessage = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+// Get details for a single match
+export const getMatchDetails = async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    const userId = req.user.uid;
+
+    const matchSnap = await admin
+      .firestore()
+      .collection("matches")
+      .doc(matchId)
+      .get();
+    if (!matchSnap.exists) {
+      return res.status(404).json({ error: "Match not found" });
+    }
+
+    const matchData = matchSnap.data();
+
+    // Security check: ensure the current user is part of this match
+    if (userId !== matchData.seekerUid && userId !== matchData.helperUid) {
+      return res
+        .status(403)
+        .json({ error: "Not authorized to view this match" });
+    }
+
+    // Determine the "other user's" UID
+    const otherUserUid =
+      userId === matchData.seekerUid
+        ? matchData.helperUid
+        : matchData.seekerUid;
+
+    // Fetch the other user's details and the need's details
+    const userSnap = await admin
+      .firestore()
+      .collection("users")
+      .doc(otherUserUid)
+      .get();
+    const needSnap = await admin
+      .firestore()
+      .collection("needs")
+      .doc(matchData.needId)
+      .get();
+
+    const otherUserData = userSnap.data() || {};
+    const needData = needSnap.data() || {};
+
+    // Prepare the response
+    const responseData = {
+      ...matchData,
+      otherUserName: otherUserData.name || "User",
+      otherUserInitials: (otherUserData.name || "U").slice(0, 2).toUpperCase(),
+      needTitle: needData.title || "Help Request",
+      otherUserLastSeen: otherUserData.lastSeen || null,
+    };
+
+    return res.status(200).json(responseData);
+  } catch (err) {
+    console.error("getMatchDetails error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
