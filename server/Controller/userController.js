@@ -45,3 +45,43 @@ export const getMyProfile = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const getUserProfile = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const db = admin.firestore();
+    const userRef = db.collection("users").doc(userId);
+    const reviewsRef = db
+      .collection("reviews")
+      .where("rateeUid", "==", userId)
+      .orderBy("createdAt", "desc");
+
+    // Fetch user data and reviews concurrently
+    const [userSnap, reviewsSnap] = await Promise.all([
+      userRef.get(),
+      reviewsRef.get(),
+    ]);
+
+    if (!userSnap.exists) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const userData = userSnap.data();
+    const reviews = reviewsSnap.docs.map((doc) => doc.data());
+
+    // Prepare a public-safe user profile
+    const publicProfile = {
+      uid: userData.uid,
+      name: userData.name,
+      ratingAvg: userData.ratingAvg || 0,
+      ratingCount: userData.ratingCount || 0,
+      reviews, // Attach the fetched reviews
+    };
+
+    res.status(200).json(publicProfile);
+  } catch (err) {
+    console.error("getUserProfile error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};

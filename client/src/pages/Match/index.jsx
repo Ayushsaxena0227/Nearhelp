@@ -7,12 +7,21 @@ import { formatDistanceToNow } from "date-fns";
 export default function Matches() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const activematchcount = matches.filter(
+    (match) => match.status !== "completed"
+  ).length;
 
   const load = async () => {
     setLoading(true);
     try {
       const data = await getMatchesForUser();
-      setMatches(data);
+
+      const sortedData = data.sort((a, b) => {
+        const timeA = a.createdAt?._seconds || 0;
+        const timeB = b.createdAt?._seconds || 0;
+        return timeB - timeA;
+      });
+      setMatches(sortedData);
     } catch (error) {
       console.error("Error loading matches:", error);
     }
@@ -92,8 +101,8 @@ export default function Matches() {
                 Your Conversations
               </h1>
               <p className="text-gray-600 mt-1">
-                {matches.length} active conversation
-                {matches.length !== 1 ? "s" : ""}
+                {activematchcount} active conversation
+                {activematchcount !== 1 ? "s" : ""}
               </p>
             </div>
             <div className="flex items-center space-x-2 text-sm text-gray-500">
@@ -166,15 +175,8 @@ export default function Matches() {
                         </p>
                       )}
 
-                      {/* Status indicator */}
                       <div className="flex items-center mt-2">
-                        <div
-                          className={`w-2 h-2 rounded-full mr-2 ${
-                            match.status === "active"
-                              ? "bg-green-400"
-                              : "bg-gray-300"
-                          }`}
-                        ></div>
+                        <div className="w-2.5 h-2.5 bg-green-500 rounded-full mr-2"></div>
                         <span className="text-xs text-gray-500 capitalize">
                           {match.status || "active"}
                         </span>

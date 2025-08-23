@@ -28,6 +28,7 @@ import NewPostModal from "../../components/NewPostModal";
 import ApplyModal from "../../components/ApplyModal";
 import { auth } from "../../utils/firebase";
 import { formatDistanceToNow } from "date-fns";
+import { getMatchesForUser } from "../../api/matches";
 import axios from "axios";
 import { Link } from "react-router-dom";
 
@@ -44,6 +45,7 @@ export default function HomePage() {
   const [showModal, setShowModal] = useState(false);
   const [activeNeed, setActiveNeed] = useState(null);
   const [appCount, setAppCount] = useState(0);
+  const [matchCount, setMatchCount] = useState(0);
   const [appliedNeedIds, setAppliedNeedIds] = useState(new Set());
 
   // 1) Fetch user profile from backend - your exact implementation
@@ -109,6 +111,19 @@ export default function HomePage() {
         .slice(0, 2)
         .toUpperCase()
     : "";
+
+  useEffect(() => {
+    const loadMatchCount = async () => {
+      if (user) {
+        const matches = await getMatchesForUser();
+        setMatchCount(matches.length);
+      }
+    };
+    loadMatchCount();
+    // Optional: You can also poll this every 30 seconds if you want it to be real-time
+    const iv = setInterval(loadMatchCount, 30000);
+    return () => clearInterval(iv);
+  }, [user]);
 
   // Your exact logout handler
   const handleLogout = async () => {
@@ -282,7 +297,7 @@ export default function HomePage() {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-green-100 text-sm">Active Chats</p>
-                <p className="text-2xl font-bold">{appCount}</p>
+                <p className="text-2xl font-bold">{matchCount}</p>
               </div>
               <MessageSquare className="w-10 h-10 text-green-200" />
             </div>
@@ -291,14 +306,15 @@ export default function HomePage() {
           <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
             <div className="flex justify-between items-center">
               <div>
-                {/* <p className="text-purple-100 text-sm">People Helped</p>
-                <p className="text-2xl font-bold">12</p> */}
+                <p className="text-purple-100 text-sm">People Helped</p>
+                <p className="text-2xl font-bold">{}</p>
               </div>
               <Users className="w-10 h-10 text-purple-200" />
             </div>
           </div>
         </div>
 
+        {/* Enhanced Feed Section */}
         {/* Enhanced Feed Section */}
         <div className="space-y-6">
           <div className="flex justify-between items-center">
@@ -342,27 +358,33 @@ export default function HomePage() {
                   key={post.needId}
                   className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow border border-gray-100"
                 >
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-medium text-sm">
-                        {post.ownerInitials}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-medium text-gray-900">
-                          {post.ownerName}
-                        </h4>
-                        <span className="text-xs text-gray-500 flex items-center">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {post.createdAt
-                            ? formatDistanceToNow(new Date(post.createdAt), {
-                                addSuffix: true,
-                              })
-                            : "Just now"}
+                  <div className="flex justify-between items-start mb-4">
+                    {/* This Link wraps the user avatar and name */}
+                    <Link
+                      to={`/profile/${post.ownerUid}`}
+                      className="flex items-center space-x-3 group"
+                    >
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-medium text-sm">
+                          {post.ownerInitials}
                         </span>
                       </div>
-                    </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                          {post.ownerName}
+                        </h4>
+                      </div>
+                    </Link>
+
+                    {/* Timestamp remains separate on the right */}
+                    <span className="text-xs text-gray-500 flex items-center flex-shrink-0">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {post.createdAt
+                        ? formatDistanceToNow(new Date(post.createdAt), {
+                            addSuffix: true,
+                          })
+                        : "Just now"}
+                    </span>
                   </div>
 
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -374,7 +396,6 @@ export default function HomePage() {
 
                   <div className="flex justify-end">
                     {auth.currentUser?.uid !== post.ownerUid ? (
-                      // 👇 This is the modified block
                       appliedNeedIds.has(post.needId) ? (
                         <span className="inline-flex items-center text-sm font-medium text-blue-600">
                           <CheckCircle className="w-4 h-4 mr-1.5" />

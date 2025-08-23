@@ -7,6 +7,7 @@ import MyApplications from "./pages/Application";
 import Chat from "./pages/Chat";
 import Matches from "./pages/Match";
 import HomePage from "./pages/Home";
+import ProfilePage from "./pages/Profile";
 
 function App() {
   return (
@@ -45,6 +46,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Chat />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile/:userId"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
           </ProtectedRoute>
         }
       />

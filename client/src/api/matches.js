@@ -36,3 +36,15 @@ export const sendMessage = async (matchId, text) => {
   );
   return res.data;
 };
+
+export const hideMatchAPI = async (matchId) => {
+  const token = await auth.currentUser.getIdToken();
+  const res = await axios.put(
+    `${API_URL}/matches/${matchId}/hide`,
+    {},
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+};
