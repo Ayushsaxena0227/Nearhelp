@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { getNeeds } from "../../api/need";
+import { getNearbyNeedsAPI, getNeeds } from "../../api/need";
 import {
   getApplicationsForOwner,
   applyToNeed,
@@ -23,6 +23,7 @@ import {
   CheckCircle,
   XCircle,
   ChevronDown,
+  MapPin,
 } from "lucide-react";
 import NewPostModal from "../../components/NewPostModal";
 import ApplyModal from "../../components/ApplyModal";
@@ -31,6 +32,7 @@ import { formatDistanceToNow } from "date-fns";
 import { getMatchesForUser } from "../../api/matches";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import { useLocation } from "../../hooks/useLocation";
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
@@ -47,6 +49,11 @@ export default function HomePage() {
   const [appCount, setAppCount] = useState(0);
   const [matchCount, setMatchCount] = useState(0);
   const [appliedNeedIds, setAppliedNeedIds] = useState(new Set());
+  const {
+    location,
+    error: locationError,
+    loading: locationLoading,
+  } = useLocation();
 
   // 1) Fetch user profile from backend - your exact implementation
   useEffect(() => {
@@ -78,15 +85,22 @@ export default function HomePage() {
 
   // 2) Load posts with loader - your exact implementation
   const loadPosts = async () => {
+    if (!location) return; // Wait until we have a location
+
     setLoadingPosts(true);
-    const data = await getNeeds();
-    setPosts(data);
+    try {
+      const data = await getNearbyNeedsAPI(location);
+      setPosts(data);
+    } catch (error) {
+      console.error("Error loading nearby posts:", error);
+    }
     setLoadingPosts(false);
   };
 
+  // This useEffect now depends on the location being available
   useEffect(() => {
     loadPosts();
-  }, []);
+  }, [location]);
 
   // 3) Your exact application count logic
   useEffect(() => {
@@ -326,101 +340,110 @@ export default function HomePage() {
             </span>
           </div>
 
-          {loadingPosts ? (
-            <div className="space-y-6">
-              <PostSkeleton />
-              <PostSkeleton />
-              <PostSkeleton />
-            </div>
-          ) : posts.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-xl shadow-sm">
-              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <FileText className="w-12 h-12 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                No posts yet
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Be the first to create a help request in your community!
-              </p>
-              <button
-                onClick={() => setShowModal(true)}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-xl hover:opacity-90 transition-opacity"
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Create First Post
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {posts.map((post) => (
-                <div
-                  key={post.needId}
-                  className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow border border-gray-100"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    {/* This Link wraps the user avatar and name */}
-                    <Link
-                      to={`/profile/${post.ownerUid}`}
-                      className="flex items-center space-x-3 group"
-                    >
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-white font-medium text-sm">
-                          {post.ownerInitials}
-                        </span>
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                          {post.ownerName}
-                        </h4>
-                      </div>
-                    </Link>
-
-                    {/* Timestamp remains separate on the right */}
-                    <span className="text-xs text-gray-500 flex items-center flex-shrink-0">
-                      <Clock className="w-3 h-3 mr-1" />
-                      {post.createdAt
-                        ? formatDistanceToNow(new Date(post.createdAt), {
-                            addSuffix: true,
-                          })
-                        : "Just now"}
-                    </span>
-                  </div>
-
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {post.title}
-                  </h3>
-                  <p className="text-gray-700 mb-4 leading-relaxed">
-                    {post.description}
-                  </p>
-
-                  <div className="flex justify-end">
-                    {auth.currentUser?.uid !== post.ownerUid ? (
-                      appliedNeedIds.has(post.needId) ? (
-                        <span className="inline-flex items-center text-sm font-medium text-blue-600">
-                          <CheckCircle className="w-4 h-4 mr-1.5" />
-                          Applied
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => setActiveNeed(post.needId)}
-                          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center space-x-2"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span>Offer Help</span>
-                        </button>
-                      )
-                    ) : (
-                      <span className="inline-flex items-center text-sm text-gray-500">
-                        <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
-                        Your Post
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {locationLoading && (
+            <p className="text-center text-gray-500 py-10">
+              Getting your location to find nearby requests...
+            </p>
           )}
+          {locationError && (
+            <p className="text-center text-red-500 py-10">{locationError}</p>
+          )}
+
+          {!locationLoading &&
+            !locationError &&
+            (loadingPosts ? (
+              <div className="space-y-6">
+                <PostSkeleton />
+                <PostSkeleton />
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-xl shadow-sm">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <MapPin className="w-12 h-12 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                  No requests found nearby
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  There are no active help requests in your immediate area right
+                  now. Try expanding your search radius or check back later.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {posts.map((post) => (
+                  <div
+                    key={post.needId}
+                    className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow border"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <Link
+                        to={`/profile/${post.ownerUid}`}
+                        className="flex items-center space-x-3 group relative"
+                      >
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-white font-medium text-sm">
+                            {post.ownerInitials}
+                          </span>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                            {post.ownerName}
+                          </h4>
+                        </div>
+                        <div className="absolute -bottom-6 left-0 w-full flex justify-center opacity-0 group-hover:opacity-100 group-hover:-bottom-7 transition-all duration-300 pointer-events-none">
+                          <span className="bg-gray-800 text-white text-xs px-2 py-1 rounded-md">
+                            View Profile
+                          </span>
+                        </div>
+                      </Link>
+                      {/* <span className="text-xs text-gray-500 flex items-center flex-shrink-0">
+                        <Clock className="w-3 h-3 mr-1" />
+                        {post.createdAt
+                          ? formatDistanceToNow(new Date(post.createdAt), {
+                              addSuffix: true,
+                            })
+                          : "Just now"}
+                      </span> */}
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      {post.title}
+                    </h3>
+                    <p className="text-gray-700 mb-4 leading-relaxed">
+                      {post.description}
+                    </p>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center text-sm font-semibold text-gray-600">
+                        <MapPin size={14} className="mr-1.5" />
+                        {post.distance.toFixed(1)} km away
+                      </div>
+                      <div className="flex justify-end">
+                        {auth.currentUser?.uid !== post.ownerUid ? (
+                          appliedNeedIds.has(post.needId) ? (
+                            <span className="inline-flex items-center text-sm font-medium text-blue-600">
+                              <CheckCircle className="w-4 h-4 mr-1.5" /> Applied
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setActiveNeed(post.needId)}
+                              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg hover:opacity-90 flex items-center space-x-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>Offer Help</span>
+                            </button>
+                          )
+                        ) : (
+                          <span className="inline-flex items-center text-sm text-gray-500">
+                            <CheckCircle className="w-4 h-4 mr-1 text-green-500" />{" "}
+                            Your Post
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
         </div>
       </main>
 

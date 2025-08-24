@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { createNeed } from "../api/need";
-import { X, PlusCircle, CheckCircle } from "lucide-react";
+import { useLocation } from "../hooks/useLocation"; // 1. Import the location hook
+import { X, PlusCircle, CheckCircle, AlertTriangle } from "lucide-react";
 
 export default function NewPostModal({ onClose, onPostCreated }) {
   const [title, setTitle] = useState("");
@@ -9,7 +10,16 @@ export default function NewPostModal({ onClose, onPostCreated }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const isFormValid = title.trim() && category.trim() && description.trim();
+  // 2. Use the location hook to get location, error, and loading status
+  const {
+    location,
+    error: locationError,
+    loading: locationLoading,
+  } = useLocation();
+
+  // 3. Update form validation to include the location
+  const isFormValid =
+    title.trim() && category.trim() && description.trim() && location;
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -17,15 +27,15 @@ export default function NewPostModal({ onClose, onPostCreated }) {
     setLoading(true);
 
     try {
-      await createNeed({ title, category, description });
+      // 4. Pass the location data when creating the need
+      await createNeed({ title, category, description, location });
       setSuccess(true);
       setTimeout(() => {
         onPostCreated();
         onClose();
-      }, 1500); // Wait 1.5s before closing
+      }, 1500);
     } catch (err) {
       console.error("Error creating post:", err);
-      // You could add an error state here as well
       setLoading(false);
     }
   };
@@ -74,19 +84,40 @@ export default function NewPostModal({ onClose, onPostCreated }) {
               onChange={(e) => setCategory(e.target.value)}
             >
               <option value="">Select a category...</option>
-              {/* Your other options */}
               <option value="transport">Transport / Moving</option>
               <option value="it_support">IT Support / Tech Help</option>
               <option value="gardening">Gardening & Landscaping</option>
+              {/* Add your other options here */}
             </select>
 
             <textarea
               className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-shadow"
               rows={4}
-              placeholder="Add more details: location, urgency, specific skills needed..."
+              placeholder="Add more details: urgency, specific skills needed..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+
+            {/* 5. Location Status Indicator */}
+            <div className="p-3 rounded-lg border bg-gray-50">
+              {locationLoading && (
+                <p className="text-sm text-gray-500">
+                  Getting your location...
+                </p>
+              )}
+              {locationError && (
+                <div className="flex items-center text-sm text-red-600">
+                  <AlertTriangle size={16} className="mr-2 flex-shrink-0" />
+                  {locationError}
+                </div>
+              )}
+              {location && !locationError && (
+                <div className="flex items-center text-sm text-green-600">
+                  <CheckCircle size={16} className="mr-2 flex-shrink-0" />
+                  Location captured successfully!
+                </div>
+              )}
+            </div>
 
             <div className="flex justify-end gap-3 pt-2">
               <button
@@ -98,7 +129,8 @@ export default function NewPostModal({ onClose, onPostCreated }) {
               </button>
               <button
                 type="submit"
-                disabled={!isFormValid || loading}
+                // 6. Disable button if form is invalid or while loading location/submitting
+                disabled={!isFormValid || loading || locationLoading}
                 className="flex items-center justify-center px-6 py-2.5 rounded-lg text-white font-semibold bg-gradient-to-r from-blue-500 to-green-500 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
               >
                 {loading ? "Posting..." : "Create Post"}
