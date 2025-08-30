@@ -7,6 +7,7 @@ import axios from "axios";
 
 // API Imports (Reverted to simple versions)
 import { getNeedsAPI } from "../../api/need";
+import { getSkillsAPI } from "../../api/skill";
 import {
   getApplicationsForOwner,
   getApplicationsByHelper,
@@ -15,6 +16,7 @@ import { getMatchesForUser } from "../../api/matches";
 
 // Component Imports
 import NewPostModal from "../../components/NewPostModal";
+import NewSkillModal from "../../components/SkillModal";
 import ApplyModal from "../../components/ApplyModal";
 
 // Icon Imports
@@ -22,7 +24,6 @@ import {
   Users,
   Search,
   Bell,
-  Settings,
   Plus,
   LogOut,
   MessageSquare,
@@ -30,88 +31,174 @@ import {
   Clock,
   CheckCircle,
   ChevronDown,
+  User,
 } from "lucide-react";
+
+const PostSkeleton = () => (
+  <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
+    <div className="flex items-center space-x-3 mb-4">
+      <div className="w-10 h-10 rounded-full bg-gray-200"></div>
+      <div>
+        <div className="h-3 w-24 bg-gray-200 rounded mb-1"></div>
+        <div className="h-2 w-16 bg-gray-200 rounded"></div>
+      </div>
+    </div>
+    <div className="h-4 w-3/4 bg-gray-200 rounded mb-2"></div>
+    <div className="h-4 w-1/2 bg-gray-200 rounded mb-4"></div>
+    <div className="h-3 w-full bg-gray-200 rounded mb-1"></div>
+    <div className="h-3 w-5/6 bg-gray-200 rounded mb-4"></div>
+    <div className="flex justify-end">
+      <div className="h-8 w-24 bg-gray-200 rounded"></div>
+    </div>
+  </div>
+);
+
+const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
+  const isNeed = type === "needs";
+  const currentUser = auth.currentUser;
+  const isOwnPost = currentUser?.uid === item.ownerUid;
+  let timeAgo = "Just now";
+  if (item.createdAt) {
+    const date = item.createdAt.seconds
+      ? new Date(item.createdAt.seconds * 1000)
+      : new Date(item.createdAt);
+
+    if (!isNaN(date)) {
+      timeAgo = formatDistanceToNow(date, { addSuffix: true });
+    }
+  }
+
+  return (
+    <div
+      className={`bg-white rounded-xl shadow-sm p-6 hover:shadow-md border transition-shadow ${
+        !isNeed && "border-purple-100"
+      }`}
+    >
+      <div className="flex justify-between items-start mb-4">
+        <Link
+          to={`/profile/${item.ownerUid}`}
+          className="flex items-center space-x-3 group relative"
+        >
+          <div
+            className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+              isNeed
+                ? "bg-gradient-to-r from-blue-500 to-green-500"
+                : "bg-gradient-to-r from-purple-500 to-pink-500"
+            }`}
+          >
+            <span className="text-white font-medium text-sm">
+              {item.ownerInitials}
+            </span>
+          </div>
+          <div>
+            <h4
+              className={`font-medium text-gray-900 group-hover:${
+                isNeed ? "text-blue-600" : "text-purple-600"
+              }`}
+            >
+              {item.ownerName}
+            </h4>
+          </div>
+        </Link>
+        <span className="text-xs text-gray-500 flex items-center shrink-0">
+          <Clock className="w-3 h-3 mr-1" />
+          {timeAgo}
+        </span>
+      </div>
+      <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
+      <p className="text-gray-700 mb-4">{item.description}</p>
+      <div className="flex justify-end mt-4">
+        {isOwnPost ? (
+          <span className="inline-flex items-center text-sm text-gray-500">
+            <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
+            {isNeed ? "Your Post" : "Your Skill"}
+          </span>
+        ) : isNeed ? (
+          appliedIds.has(item.needId) ? (
+            <span className="inline-flex items-center text-sm font-medium text-blue-600">
+              <CheckCircle className="w-4 h-4 mr-1.5" /> Applied
+            </span>
+          ) : (
+            <button
+              onClick={() => onApplyClick(item)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+            >
+              <Plus className="w-4 h-4 mr-1" /> Offer Help
+            </button>
+          )
+        ) : (
+          <button
+            onClick={() => onApplyClick(item)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm flex items-center"
+          >
+            <MessageSquare className="w-4 h-4 mr-2" /> Request Help
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
 
-  // --- Reverted States (All location and skill states removed) ---
-  const [searchTerm, setSearchTerm] = useState("");
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
-  const [loadingPosts, setLoadingPosts] = useState(true);
-  const [loadingProfile, setLoadingProfile] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [activeNeed, setActiveNeed] = useState(null);
+  const [skills, setSkills] = useState([]);
+  const [loadingFeeds, setLoadingFeeds] = useState(true);
+  const [view, setView] = useState("needs");
   const [appCount, setAppCount] = useState(0);
   const [matchCount, setMatchCount] = useState(0);
   const [appliedNeedIds, setAppliedNeedIds] = useState(new Set());
+  const [showNeedModal, setShowNeedModal] = useState(false);
+  const [showSkillModal, setShowSkillModal] = useState(false);
+  const [activeItem, setActiveItem] = useState(null);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // --- Data Fetching & Handlers (Reverted to simple logic) ---
-
-  // Reverted to simple loadPosts function
-  const loadPosts = async () => {
-    setLoadingPosts(true);
+  const loadFeeds = async () => {
+    setLoadingFeeds(true);
     try {
-      const data = await getNeedsAPI(); // Fetches ALL needs
-      setPosts(data);
+      const [needsData, skillsData] = await Promise.all([
+        getNeedsAPI(),
+        getSkillsAPI(),
+      ]);
+      setPosts(needsData);
+      setSkills(skillsData);
     } catch (error) {
-      console.error("Error loading posts:", error);
+      console.error("Error loading feeds:", error);
     }
-    setLoadingPosts(false);
-  };
-
-  // This useEffect now runs once on mount to load all posts
-  useEffect(() => {
-    loadPosts();
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    const fetchProfile = async () => {
-      const token = await auth.currentUser.getIdToken();
-      const res = await axios.get("http://localhost:5007/users/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setProfile(res.data);
-      setLoadingProfile(false);
-    };
-    fetchProfile();
-  }, [user]);
-
-  const fetchMyApplications = async () => {
-    if (!user) return;
-    const mySentApplications = await getApplicationsByHelper();
-    const ids = new Set(mySentApplications.map((app) => app.needId));
-    setAppliedNeedIds(ids);
-  };
-  useEffect(() => {
-    if (user) fetchMyApplications();
-  }, [user]);
-
-  const handleApplySuccess = () => {
-    setActiveNeed(null);
-    fetchMyApplications();
+    setLoadingFeeds(false);
   };
 
   useEffect(() => {
+    loadFeeds();
     if (!user) return;
-    const loadCounts = async () => {
+
+    const fetchData = async () => {
       try {
-        const [apps, matches] = await Promise.all([
-          getApplicationsForOwner(),
-          getMatchesForUser(),
-        ]);
-        setAppCount(apps.filter((a) => a.status === "pending").length);
-        setMatchCount(matches.length);
+        const token = await auth.currentUser.getIdToken();
+        const [profileData, appsData, matchesData, sentAppsData] =
+          await Promise.all([
+            axios.get("http://localhost:5007/users/me", {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+            getApplicationsForOwner(),
+            getMatchesForUser(),
+            getApplicationsByHelper(),
+          ]);
+        setProfile(profileData.data);
+        setAppCount(appsData.filter((a) => a.status === "pending").length);
+        setMatchCount(matchesData.length);
+        setAppliedNeedIds(new Set(sentAppsData.map((app) => app.needId)));
       } catch (error) {
-        console.error("Error loading counts:", error);
+        console.error("Error fetching initial data:", error);
       }
     };
-    loadCounts();
-    const iv = setInterval(loadCounts, 30000);
-    return () => clearInterval(iv);
+
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const handleLogout = async () => {
@@ -119,130 +206,157 @@ export default function HomePage() {
     window.location.href = "/login";
   };
 
-  let displayName =
-    profile?.name || auth.currentUser?.displayName || auth.currentUser?.email;
-  let initials = displayName
-    ? displayName
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
-    : "";
-
-  const PostSkeleton = () => (
-    <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
-      <div className="flex items-center space-x-3 mb-4">
-        <div className="w-10 h-10 rounded-full bg-gray-200"></div>
-        <div>
-          <div className="h-3 w-24 bg-gray-200 rounded mb-1"></div>
-          <div className="h-2 w-16 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-      <div className="h-4 w-3/4 bg-gray-200 rounded mb-2"></div>
-      <div className="h-4 w-1/2 bg-gray-200 rounded mb-4"></div>
-      <div className="h-3 w-full bg-gray-200 rounded mb-1"></div>
-      <div className="h-3 w-5/6 bg-gray-200 rounded mb-4"></div>
-      <div className="flex justify-end">
-        <div className="h-8 w-24 bg-gray-200 rounded"></div>
-      </div>
-    </div>
-  );
+  const handleApplySuccess = () => {
+    setActiveItem(null);
+    if (user) {
+      getApplicationsByHelper().then((myApps) =>
+        setAppliedNeedIds(new Set(myApps.map((app) => app.needId)))
+      );
+    }
+  };
 
   if (authLoading) return null;
   if (!user) return <p>Please login to continue.</p>;
 
+  const displayName = profile?.name || user.displayName || user.email;
+  const initials =
+    displayName
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "";
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white sticky top-0 z-40 border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-2">
+            <Link to="/home" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
                 <Users className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-bold text-gray-900">NearHelp</span>
-            </div>
+            </Link>
             <div className="flex-1 max-w-lg mx-8">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search for help..."
+                  placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl"
+                  className="w-full pl-9 pr-4 py-2.5 border rounded-xl"
                 />
               </div>
             </div>
-            <div className="flex items-center space-x-4 relative">
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowSkillModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-xl flex items-center space-x-2 text-sm font-semibold"
+              >
+                <Plus size={16} />
+                <span className="hidden sm:inline">Offer Skill</span>
+              </button>
+              <button
+                onClick={() => setShowNeedModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-xl flex items-center space-x-2 text-sm font-semibold"
+              >
+                <Plus size={16} />
+                <span className="hidden sm:inline">Post a Need</span>
+              </button>
               <Link
                 to="/my-applications"
-                className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="relative p-2 hover:bg-gray-100 rounded-full"
               >
-                <Bell className="w-5 h-5 text-gray-600" />
+                <Bell size={20} />
                 {appCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-tight">
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">
                     {appCount}
                   </span>
                 )}
               </Link>
-              <button
-                onClick={() => setShowModal(true)}
-                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-xl hover:opacity-90 flex items-center space-x-2 transition-opacity shadow-lg hover:shadow-xl"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">New Post</span>
-              </button>
               <div className="relative">
                 <div
-                  className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center space-x-2 cursor-pointer p-1 rounded-full hover:bg-gray-100 transition-colors"
+                  onClick={() =>
+                    setOpenDropdown(
+                      openDropdown === "profile" ? null : "profile"
+                    )
+                  }
                 >
-                  {loadingProfile ? (
-                    <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
-                  ) : (
-                    <>
-                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-medium text-sm">
-                          {initials}
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium text-gray-700 hidden md:inline">
-                        {displayName}
-                      </span>
-                      <ChevronDown className="w-4 h-4 text-gray-500" />
-                    </>
-                  )}
+                  <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-medium text-sm">
+                      {initials}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    className={`w-4 h-4 text-gray-500 transition-transform ${
+                      openDropdown === "profile" ? "rotate-180" : ""
+                    }`}
+                  />
                 </div>
-                {dropdownOpen && (
+                {openDropdown === "profile" && (
                   <>
                     <div
                       className="fixed inset-0 z-10"
-                      onClick={() => setDropdownOpen(false)}
+                      onClick={() => setOpenDropdown(null)}
                     />
-                    <div className="absolute top-12 right-0 bg-white rounded-xl shadow-lg border border-gray-200 w-48 z-20">
+                    {/* 👇 This is the new, improved dropdown UI */}
+                    <div className="absolute top-12 right-0 bg-white rounded-xl shadow-lg border w-64 z-20 animate-fade-in-down">
+                      {/* Header */}
+                      <div className="p-4 border-b">
+                        <p className="font-semibold text-gray-800 truncate">
+                          {displayName}
+                        </p>
+                        <p className="text-sm text-gray-500 truncate">
+                          {user.email}
+                        </p>
+                      </div>
+                      {/* Navigation Links */}
                       <div className="py-2">
                         <Link
-                          to="/my-applications"
+                          to={`/profile/${user.uid}`}
                           className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                         >
-                          <FileText className="w-4 h-4 mr-3" />
-                          My Applications
+                          <User size={16} className="mr-3 text-gray-500" />
+                          View Profile
+                        </Link>
+                        <Link
+                          to="/my-applications"
+                          className="flex items-center justify-between px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center">
+                            <FileText
+                              size={16}
+                              className="mr-3 text-gray-500"
+                            />
+                            My Applications
+                          </div>
+                          {appCount > 0 && (
+                            <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                              {appCount}
+                            </span>
+                          )}
                         </Link>
                         <Link
                           to="/matches"
                           className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                         >
-                          <MessageSquare className="w-4 h-4 mr-3" />
+                          <MessageSquare
+                            size={16}
+                            className="mr-3 text-gray-500"
+                          />
                           Messages
                         </Link>
-                        <hr className="my-2" />
+                      </div>
+                      {/* Logout Button */}
+                      <div className="border-t p-2">
                         <button
                           onClick={handleLogout}
-                          className="flex items-center px-4 py-2 w-full text-left text-red-600 hover:bg-red-50 transition-colors"
+                          className="flex items-center px-4 py-2 w-full text-left text-red-600 hover:bg-red-50 rounded-md transition-colors"
                         >
-                          <LogOut className="w-4 h-4 mr-3" />
+                          <LogOut size={16} className="mr-3" />
                           Logout
                         </button>
                       </div>
@@ -254,8 +368,7 @@ export default function HomePage() {
           </div>
         </div>
       </header>
-
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
             <div className="flex justify-between items-center">
@@ -278,123 +391,104 @@ export default function HomePage() {
           <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-purple-100 text-sm">People Helped</p>
-                <p className="text-2xl font-bold"></p>
+                <p className="text-purple-100 text-sm">Offered Skills</p>
+                <p className="text-2xl font-bold">{skills.length}</p>
               </div>
               <Users className="w-10 h-10 text-purple-200" />
             </div>
           </div>
         </div>
-
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-900">
-              Community Requests
+              {view === "needs" ? "Community Requests" : "Offered Skills"}
             </h2>
-            <span className="text-sm text-gray-500 bg-white px-3 py-1 rounded-full border">
-              {posts.length} active
-            </span>
-          </div>
-          {loadingPosts ? (
-            <div className="space-y-6">
-              <PostSkeleton />
-              <PostSkeleton />
-              <PostSkeleton />
-            </div>
-          ) : posts.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-xl shadow-sm">
-              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <FileText className="w-12 h-12 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                No posts yet
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Be the first to create a help request in your community!
-              </p>
+            <div className="flex items-center bg-gray-200 p-1 rounded-full">
               <button
-                onClick={() => setShowModal(true)}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-xl hover:opacity-90 transition-opacity"
+                onClick={() => setView("needs")}
+                className={`px-4 py-1.5 text-sm font-semibold rounded-full ${
+                  view === "needs"
+                    ? "bg-white text-blue-600 shadow"
+                    : "text-gray-600"
+                }`}
               >
-                <Plus className="w-5 h-5 mr-2" />
-                Create First Post
+                Needs
               </button>
+              <button
+                onClick={() => setView("skills")}
+                className={`px-4 py-1.5 text-sm font-semibold rounded-full ${
+                  view === "skills"
+                    ? "bg-white text-blue-600 shadow"
+                    : "text-gray-600"
+                }`}
+              >
+                Skills
+              </button>
+            </div>
+          </div>
+          {loadingFeeds ? (
+            <>
+              <PostSkeleton />
+              <PostSkeleton />
+            </>
+          ) : view === "needs" ? (
+            posts.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-xl shadow-sm">
+                <FileText className="mx-auto w-12 h-12 text-gray-400 mb-4" />
+                <h3 className="text-xl font-semibold">
+                  No requests posted yet
+                </h3>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {posts.map((post) => (
+                  <FeedCard
+                    key={post.needId}
+                    item={post}
+                    type="needs"
+                    appliedIds={appliedNeedIds}
+                    onApplyClick={setActiveItem}
+                  />
+                ))}
+              </div>
+            )
+          ) : // Skills view
+          skills.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-xl shadow-sm">
+              <Users className="mx-auto w-12 h-12 text-gray-400 mb-4" />
+              <h3 className="text-xl font-semibold">No skills offered yet</h3>
             </div>
           ) : (
             <div className="space-y-6">
-              {posts.map((post) => (
-                <div
-                  key={post.needId}
-                  className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow border border-gray-100"
-                >
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-medium text-sm">
-                        {post.ownerInitials}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-medium text-gray-900">
-                          {post.ownerName}
-                        </h4>
-                        <span className="text-xs text-gray-500 flex items-center">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {post.createdAt
-                            ? formatDistanceToNow(new Date(post.createdAt), {
-                                addSuffix: true,
-                              })
-                            : "Just now"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {post.title}
-                  </h3>
-                  <p className="text-gray-700 mb-4 leading-relaxed">
-                    {post.description}
-                  </p>
-                  <div className="flex justify-end">
-                    {auth.currentUser?.uid !== post.ownerUid ? (
-                      appliedNeedIds.has(post.needId) ? (
-                        <span className="inline-flex items-center text-sm font-medium text-blue-600">
-                          <CheckCircle className="w-4 h-4 mr-1.5" />
-                          Applied
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => setActiveNeed(post.needId)}
-                          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg hover:opacity-90 transition-opacity flex items-center space-x-2"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span>Offer Help</span>
-                        </button>
-                      )
-                    ) : (
-                      <span className="inline-flex items-center text-sm text-gray-500">
-                        <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
-                        Your Post
-                      </span>
-                    )}
-                  </div>
-                </div>
+              {skills.map((skill) => (
+                <FeedCard
+                  key={skill.skillId}
+                  item={skill}
+                  type="skills"
+                  appliedIds={new Set()}
+                  onApplyClick={setActiveItem}
+                />
               ))}
             </div>
           )}
         </div>
       </main>
-
-      {showModal && (
+      {showNeedModal && (
         <NewPostModal
-          onClose={() => setShowModal(false)}
-          onPostCreated={loadPosts}
+          onClose={() => setShowNeedModal(false)}
+          onPostCreated={loadFeeds}
         />
       )}
-      {activeNeed && (
+      {showSkillModal && (
+        <NewSkillModal
+          onClose={() => setShowSkillModal(false)}
+          onSkillCreated={loadFeeds}
+        />
+      )}
+      {activeItem && (
         <ApplyModal
-          needId={activeNeed}
-          onClose={() => setActiveNeed(null)}
+          needId={activeItem.needId || activeItem.skillId}
+          onClose={() => setActiveItem(null)}
           onApplySuccess={handleApplySuccess}
         />
       )}

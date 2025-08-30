@@ -49,18 +49,24 @@ export const getMyProfile = async (req, res) => {
 export const getUserProfile = async (req, res) => {
   try {
     const { userId } = req.params;
-
     const db = admin.firestore();
+
+    // We will now fetch the user, their reviews, AND their skills
     const userRef = db.collection("users").doc(userId);
     const reviewsRef = db
       .collection("reviews")
       .where("rateeUid", "==", userId)
       .orderBy("createdAt", "desc");
+    const skillsRef = db
+      .collection("skills")
+      .where("ownerUid", "==", userId)
+      .orderBy("createdAt", "desc"); // 👈 NEW
 
-    // Fetch user data and reviews concurrently
-    const [userSnap, reviewsSnap] = await Promise.all([
+    const [userSnap, reviewsSnap, skillsSnap] = await Promise.all([
+      // 👈 NEW
       userRef.get(),
       reviewsRef.get(),
+      skillsRef.get(), // 👈 NEW
     ]);
 
     if (!userSnap.exists) {
@@ -69,14 +75,15 @@ export const getUserProfile = async (req, res) => {
 
     const userData = userSnap.data();
     const reviews = reviewsSnap.docs.map((doc) => doc.data());
+    const skills = skillsSnap.docs.map((doc) => doc.data()); // 👈 NEW
 
-    // Prepare a public-safe user profile
     const publicProfile = {
       uid: userData.uid,
       name: userData.name,
       ratingAvg: userData.ratingAvg || 0,
       ratingCount: userData.ratingCount || 0,
-      reviews, // Attach the fetched reviews
+      reviews,
+      skills, // 👈 NEW: Attach the user's skills to the response
     };
 
     res.status(200).json(publicProfile);
