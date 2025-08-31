@@ -5,7 +5,7 @@ import { auth } from "../../utils/firebase";
 import { formatDistanceToNow } from "date-fns";
 import axios from "axios";
 
-// API Imports (Reverted to simple versions)
+// API Imports
 import { getNeedsAPI } from "../../api/need";
 import { getSkillsAPI } from "../../api/skill";
 import {
@@ -18,6 +18,7 @@ import { getMatchesForUser } from "../../api/matches";
 import NewPostModal from "../../components/NewPostModal";
 import NewSkillModal from "../../components/SkillModal";
 import ApplyModal from "../../components/ApplyModal";
+import ReportModal from "../../components/ReportModal"; // Make sure this is imported
 
 // Icon Imports
 import {
@@ -32,6 +33,8 @@ import {
   CheckCircle,
   ChevronDown,
   User,
+  MoreVertical, // NEW: Icon for the menu
+  Flag, // NEW: Icon for the report button
 } from "lucide-react";
 
 const PostSkeleton = () => (
@@ -54,6 +57,10 @@ const PostSkeleton = () => (
 );
 
 const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
+  // 👇 1. ADD STATE for the report menu and modal
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+
   const isNeed = type === "needs";
   const currentUser = auth.currentUser;
   const isOwnPost = currentUser?.uid === item.ownerUid;
@@ -69,11 +76,43 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
   }
 
   return (
+    // 👇 2. ADD 'relative' class here for positioning the dropdown
     <div
-      className={`bg-white rounded-xl shadow-sm p-6 hover:shadow-md border transition-shadow ${
+      className={`relative bg-white rounded-xl shadow-sm p-6 hover:shadow-md border transition-shadow ${
         !isNeed && "border-purple-100"
       }`}
     >
+      {/* 👇 3. ADD the three-dot menu button and its logic */}
+      {!isOwnPost && (
+        <div className="absolute top-4 right-4 z-10">
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="p-2 text-gray-400 hover:bg-gray-100 rounded-full"
+          >
+            <MoreVertical size={18} />
+          </button>
+          {menuOpen && (
+            <>
+              <div
+                className="fixed inset-0"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="absolute top-8 right-0 bg-white shadow-lg rounded-lg border w-40 z-20">
+                <button
+                  onClick={() => {
+                    setShowReportModal(true);
+                    setMenuOpen(false);
+                  }}
+                  className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <Flag size={14} className="mr-2" /> Report post
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="flex justify-between items-start mb-4">
         <Link
           to={`/profile/${item.ownerUid}`}
@@ -100,7 +139,7 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
             </h4>
           </div>
         </Link>
-        <span className="text-xs text-gray-500 flex items-center shrink-0">
+        <span className="text-xs text-gray-500 flex items-center shrink-0 pr-8">
           <Clock className="w-3 h-3 mr-1" />
           {timeAgo}
         </span>
@@ -135,13 +174,22 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
           </button>
         )}
       </div>
+
+      {/* 👇 4. RENDER the ReportModal when its state is true */}
+      {showReportModal && (
+        <ReportModal
+          item={item}
+          itemType={type === "needs" ? "post" : "skill"}
+          onClose={() => setShowReportModal(false)}
+        />
+      )}
     </div>
   );
 };
 
+// --- The rest of your HomePage component is completely unchanged ---
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
-
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [skills, setSkills] = useState([]);
@@ -302,9 +350,7 @@ export default function HomePage() {
                       className="fixed inset-0 z-10"
                       onClick={() => setOpenDropdown(null)}
                     />
-                    {/* 👇 This is the new, improved dropdown UI */}
                     <div className="absolute top-12 right-0 bg-white rounded-xl shadow-lg border w-64 z-20 animate-fade-in-down">
-                      {/* Header */}
                       <div className="p-4 border-b">
                         <p className="font-semibold text-gray-800 truncate">
                           {displayName}
@@ -313,14 +359,13 @@ export default function HomePage() {
                           {user.email}
                         </p>
                       </div>
-                      {/* Navigation Links */}
                       <div className="py-2">
                         <Link
                           to={`/profile/${user.uid}`}
                           className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                         >
-                          <User size={16} className="mr-3 text-gray-500" />
-                          View Profile
+                          <User size={16} className="mr-3 text-gray-500" /> View
+                          Profile
                         </Link>
                         <Link
                           to="/my-applications"
@@ -330,7 +375,7 @@ export default function HomePage() {
                             <FileText
                               size={16}
                               className="mr-3 text-gray-500"
-                            />
+                            />{" "}
                             My Applications
                           </div>
                           {appCount > 0 && (
@@ -346,18 +391,16 @@ export default function HomePage() {
                           <MessageSquare
                             size={16}
                             className="mr-3 text-gray-500"
-                          />
+                          />{" "}
                           Messages
                         </Link>
                       </div>
-                      {/* Logout Button */}
                       <div className="border-t p-2">
                         <button
                           onClick={handleLogout}
                           className="flex items-center px-4 py-2 w-full text-left text-red-600 hover:bg-red-50 rounded-md transition-colors"
                         >
-                          <LogOut size={16} className="mr-3" />
-                          Logout
+                          <LogOut size={16} className="mr-3" /> Logout
                         </button>
                       </div>
                     </div>
@@ -452,8 +495,7 @@ export default function HomePage() {
                 ))}
               </div>
             )
-          ) : // Skills view
-          skills.length === 0 ? (
+          ) : skills.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-xl shadow-sm">
               <Users className="mx-auto w-12 h-12 text-gray-400 mb-4" />
               <h3 className="text-xl font-semibold">No skills offered yet</h3>
