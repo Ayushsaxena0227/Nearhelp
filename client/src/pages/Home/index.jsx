@@ -18,7 +18,7 @@ import { getMatchesForUser } from "../../api/matches";
 import NewPostModal from "../../components/NewPostModal";
 import NewSkillModal from "../../components/SkillModal";
 import ApplyModal from "../../components/ApplyModal";
-import ReportModal from "../../components/ReportModal"; // Make sure this is imported
+import ReportModal from "../../components/ReportModal"; // Make sure this is importe
 
 // Icon Imports
 import {
@@ -33,9 +33,11 @@ import {
   CheckCircle,
   ChevronDown,
   User,
-  MoreVertical, // NEW: Icon for the menu
-  Flag, // NEW: Icon for the report button
+  MoreVertical,
+  Flag,
 } from "lucide-react";
+
+import Nearhelp_logo from "../../assets/Nearhelp_logo/help.png";
 
 const PostSkeleton = () => (
   <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
@@ -64,6 +66,8 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
   const isNeed = type === "needs";
   const currentUser = auth.currentUser;
   const isOwnPost = currentUser?.uid === item.ownerUid;
+  const isAnonymous = item.ownerUid === "anonymous";
+
   let timeAgo = "Just now";
   if (item.createdAt) {
     const date = item.createdAt.seconds
@@ -76,13 +80,11 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
   }
 
   return (
-    // 👇 2. ADD 'relative' class here for positioning the dropdown
     <div
-      className={`relative bg-white rounded-xl shadow-sm p-6 hover:shadow-md border transition-shadow ${
+      className={`relative bg-white rounded-xl shadow-sm p-6 hover:shadow-md  transition-shadow ${
         !isNeed && "border-purple-100"
       }`}
     >
-      {/* 👇 3. ADD the three-dot menu button and its logic */}
       {!isOwnPost && (
         <div className="absolute top-4 right-4 z-10">
           <button
@@ -114,32 +116,48 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
       )}
 
       <div className="flex justify-between items-start mb-4">
-        <Link
-          to={`/profile/${item.ownerUid}`}
-          className="flex items-center space-x-3 group relative"
-        >
-          <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-              isNeed
-                ? "bg-gradient-to-r from-blue-500 to-green-500"
-                : "bg-gradient-to-r from-purple-500 to-pink-500"
-            }`}
-          >
-            <span className="text-white font-medium text-sm">
-              {item.ownerInitials}
-            </span>
+        {/* This block is now conditional based on whether the post is anonymous */}
+        {item.isAnonymous ? (
+          // --- UI for ANONYMOUS posts (Not a link) ---
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-gray-300">
+              <span className="text-gray-600 font-bold text-lg">?</span>
+            </div>
+            <div>
+              <h4 className="font-medium text-gray-700">{item.ownerName}</h4>
+            </div>
           </div>
-          <div>
-            <h4
-              className={`font-medium text-gray-900 group-hover:${
-                isNeed ? "text-blue-600" : "text-purple-600"
+        ) : (
+          // --- UI for REGULAR posts (Is a link) ---
+          <Link
+            to={`/profile/${item.ownerUid}`}
+            className="flex items-center space-x-3 group relative"
+          >
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                isNeed
+                  ? "bg-gradient-to-r from-blue-500 to-green-500"
+                  : "bg-gradient-to-r from-purple-500 to-pink-500"
               }`}
             >
-              {item.ownerName}
-            </h4>
-          </div>
-        </Link>
-        <span className="text-xs text-gray-500 flex items-center shrink-0 pr-8">
+              <span className="text-white font-medium text-sm">
+                {item.ownerInitials}
+              </span>
+            </div>
+            <div>
+              <h4
+                className={`font-medium text-gray-900 transition-colors ${
+                  isNeed
+                    ? "group-hover:text-blue-600"
+                    : "group-hover:text-purple-600"
+                }`}
+              >
+                {item.ownerName}
+              </h4>
+            </div>
+          </Link>
+        )}
+        <span className="text-xs text-gray-500 flex items-center shrink-0">
           <Clock className="w-3 h-3 mr-1" />
           {timeAgo}
         </span>
@@ -281,8 +299,12 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/home" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-gradient-to-r  rounded-lg flex items-center justify-center">
+                <img
+                  src={Nearhelp_logo}
+                  className="w-5 h-5"
+                  alt="nearhelp icon"
+                />
               </div>
               <span className="text-xl font-bold text-gray-900">NearHelp</span>
             </Link>
@@ -294,7 +316,7 @@ export default function HomePage() {
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 border rounded-xl"
+                  className="w-full pl-9 pr-4 py-2.5 border-gray-400 shadow-xl border rounded-xl"
                 />
               </div>
             </div>
@@ -304,14 +326,18 @@ export default function HomePage() {
                 className="px-4 py-2 bg-purple-600 text-white rounded-xl flex items-center space-x-2 text-sm font-semibold"
               >
                 <Plus size={16} />
-                <span className="hidden sm:inline">Offer Skill</span>
+                <span className="hidden sm:inline cursor-pointer">
+                  Offer Skill
+                </span>
               </button>
               <button
                 onClick={() => setShowNeedModal(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-xl flex items-center space-x-2 text-sm font-semibold"
               >
                 <Plus size={16} />
-                <span className="hidden sm:inline">Post a Need</span>
+                <span className="hidden sm:inline cursor-pointer">
+                  Post a Need
+                </span>
               </button>
               <Link
                 to="/my-applications"

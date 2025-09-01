@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 export const createNeed = async (req, res) => {
   try {
     const uid = req.user.uid;
-    const { title, category, description } = req.body;
+    const { title, category, description, isAnonymous } = req.body;
 
     if (!title || !category || !description) {
       return res.status(400).json({ error: "All fields are required" });
@@ -30,6 +30,7 @@ export const createNeed = async (req, res) => {
       category,
       title,
       description,
+      isAnonymous: !!isAnonymous,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
@@ -41,7 +42,6 @@ export const createNeed = async (req, res) => {
   }
 };
 
-// This is now the main function for fetching all needs
 export const getNeeds = async (req, res) => {
   try {
     const snapshot = await admin
@@ -49,10 +49,23 @@ export const getNeeds = async (req, res) => {
       .collection("needs")
       .orderBy("createdAt", "desc")
       .get();
-    const needs = snapshot.docs.map((doc) => ({
-      ...doc.data(),
-      createdAt: doc.data().createdAt ? doc.data().createdAt.toDate() : null,
-    }));
+
+    const needs = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      if (data.isAnonymous) {
+        return {
+          ...data,
+          ownerUid: "anonymous",
+          ownerName: "A Neighbor",
+          ownerInitials: "?",
+        };
+      }
+      return {
+        ...data,
+        createdAt: data.createdAt ? data.createdAt.toDate() : null,
+      };
+    });
+
     res.status(200).json(needs);
   } catch (err) {
     console.error("Error fetching needs:", err);

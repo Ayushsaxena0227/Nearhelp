@@ -1,7 +1,13 @@
 import React, { useState } from "react";
 import { createNeed } from "../api/need";
 import { useLocation } from "../hooks/useLocation"; // 1. Import the location hook
-import { X, PlusCircle, CheckCircle, AlertTriangle } from "lucide-react";
+import {
+  X,
+  PlusCircle,
+  CheckCircle,
+  AlertTriangle,
+  Shield,
+} from "lucide-react";
 
 export default function NewPostModal({ onClose, onPostCreated }) {
   const [title, setTitle] = useState("");
@@ -9,7 +15,7 @@ export default function NewPostModal({ onClose, onPostCreated }) {
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const isFormValid = title.trim() && category.trim() && description.trim();
 
   const handleCreate = async (e) => {
@@ -17,7 +23,7 @@ export default function NewPostModal({ onClose, onPostCreated }) {
     if (!isFormValid) return;
     setLoading(true);
     try {
-      await createNeed({ title, category, description }); // No location data
+      await createNeed({ title, category, description, isAnonymous }); // No location data
       setSuccess(true);
       setTimeout(() => {
         onPostCreated();
@@ -66,7 +72,6 @@ export default function NewPostModal({ onClose, onPostCreated }) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
-
             <select
               className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
               value={category}
@@ -78,15 +83,30 @@ export default function NewPostModal({ onClose, onPostCreated }) {
               <option value="gardening">Gardening & Landscaping</option>
               {/* Add your other options here */}
             </select>
-
             <textarea
               className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-shadow"
               rows={4}
               placeholder="Add more details: urgency, specific skills needed..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-            />
-
+            />{" "}
+            <div className="border-t pt-4">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isAnonymous}
+                  onChange={(e) => setIsAnonymous(e.target.checked)}
+                  className="h-5 w-5 rounded text-blue-600 focus:ring-blue-500"
+                />
+                <div className="flex items-center text-gray-700">
+                  <Shield size={18} className="mr-2" />
+                  <span className="font-semibold">Post Anonymously</span>
+                </div>
+              </label>
+              <p className="text-xs text-gray-500 mt-1 ml-8">
+                Your name and profile will be hidden until you accept an offer.
+              </p>
+            </div>
             <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
@@ -98,7 +118,7 @@ export default function NewPostModal({ onClose, onPostCreated }) {
               <button
                 type="submit"
                 // 6. Disable button if form is invalid or while loading location/submitting
-                disabled={!isFormValid || loading || locationLoading}
+                disabled={!isFormValid || loading}
                 className="flex items-center justify-center px-6 py-2.5 rounded-lg text-white font-semibold bg-gradient-to-r from-blue-500 to-green-500 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
               >
                 {loading ? "Posting..." : "Create Post"}
