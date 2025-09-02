@@ -9,11 +9,6 @@ export default function NewSkillModal({ onClose, onSkillCreated }) {
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const {
-    location,
-    error: locationError,
-    loading: locationLoading,
-  } = useLocation();
 
   const isFormValid =
     title.trim() && category.trim() && description.trim() && location;
@@ -82,23 +77,6 @@ export default function NewSkillModal({ onClose, onSkillCreated }) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-            <div className="p-3 rounded-lg border bg-gray-50">
-              {locationLoading && (
-                <p className="text-sm">Getting your location...</p>
-              )}
-              {locationError && (
-                <div className="flex items-center text-sm text-red-600">
-                  <AlertTriangle size={16} className="mr-2" />
-                  {locationError}
-                </div>
-              )}
-              {location && !locationError && (
-                <div className="flex items-center text-sm text-green-600">
-                  <CheckCircle size={16} className="mr-2" />
-                  Location captured!
-                </div>
-              )}
-            </div>
             <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
@@ -109,7 +87,7 @@ export default function NewSkillModal({ onClose, onSkillCreated }) {
               </button>
               <button
                 type="submit"
-                disabled={!isFormValid || loading || locationLoading}
+                disabled={!isFormValid || loading}
                 className="flex items-center justify-center px-6 py-2.5 rounded-lg text-white font-semibold bg-blue-600 disabled:opacity-50"
               >
                 {loading ? "Posting..." : "Offer Skill"}

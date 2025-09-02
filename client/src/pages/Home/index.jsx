@@ -38,6 +38,13 @@ import {
 } from "lucide-react";
 
 import Nearhelp_logo from "../../assets/Nearhelp_logo/help.png";
+import {
+  collection,
+  getFirestore,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
 
 const PostSkeleton = () => (
   <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
@@ -221,6 +228,7 @@ export default function HomePage() {
   const [activeItem, setActiveItem] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [allMatches, setAllMatches] = useState([]);
 
   const loadFeeds = async () => {
     setLoadingFeeds(true);
@@ -254,7 +262,7 @@ export default function HomePage() {
             getApplicationsByHelper(),
           ]);
         setProfile(profileData.data);
-        setAppCount(appsData.filter((a) => a.status === "pending").length);
+        // setAppCount(appsData.filter((a) => a.status === "pending").length);
         setMatchCount(matchesData.length);
         setAppliedNeedIds(new Set(sentAppsData.map((app) => app.needId)));
       } catch (error) {
@@ -280,6 +288,46 @@ export default function HomePage() {
       );
     }
   };
+  useEffect(() => {
+    if (!user) {
+      setAppCount(0); // Clear count if user logs ou
+      return;
+    }
+    const db = getFirestore();
+
+    const q = query(
+      collection(db, "applications"),
+      where("seekerUid", "==", user.uid),
+      where("status", "==", "pending")
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const pendingCount = querySnapshot.size;
+      console.log(
+        `Real-time update: You have ${pendingCount} pending applications.`
+      );
+      setAppCount(pendingCount);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    const loadMatchData = async () => {
+      if (user) {
+        const matches = await getMatchesForUser();
+        setAllMatches(matches);
+      }
+    };
+    loadMatchData();
+    const iv = setInterval(loadMatchData, 30000);
+    return () => clearInterval(iv);
+  }, [user]);
+
+  const ActiveMatchCount = allMatches.filter(
+    (match) => match.status != "completed"
+  ).length;
+  // console.log(ActiveMatchCount);
 
   if (authLoading) return null;
   if (!user) return <p>Please login to continue.</p>;
@@ -452,7 +500,7 @@ export default function HomePage() {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-green-100 text-sm">Active Chats</p>
-                <p className="text-2xl font-bold">{matchCount}</p>
+                <p className="text-2xl font-bold">{ActiveMatchCount}</p>
               </div>
               <MessageSquare className="w-10 h-10 text-green-200" />
             </div>
