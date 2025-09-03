@@ -30,6 +30,34 @@ export const createUserProfile = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+export const handleSocialLogin = async (req, res) => {
+  try {
+    const { uid, email, name } = req.user;
+    const userRef = admin.firestore().collection("users").doc(uid);
+    const userSnap = await userRef.get();
+
+    if (userSnap.exists) {
+      console.log(`Returning user logged in via Google: ${email}`);
+      res.status(200).json({ message: "Login successful." });
+    } else {
+      // If they don't have a profile, create a basic one. This is the "signup" part.
+      console.log(`New user signed up via Google: ${email}`);
+      const newUserProfile = {
+        uid,
+        email,
+        name: name || "New User",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        ratingAvg: 0,
+        ratingCount: 0,
+      };
+      await userRef.set(newUserProfile);
+      res.status(201).json({ message: "User profile created successfully." });
+    }
+  } catch (err) {
+    console.error("Social login error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
 
 export const getMyProfile = async (req, res) => {
   try {
@@ -60,13 +88,12 @@ export const getUserProfile = async (req, res) => {
     const skillsRef = db
       .collection("skills")
       .where("ownerUid", "==", userId)
-      .orderBy("createdAt", "desc"); // 👈 NEW
+      .orderBy("createdAt", "desc");
 
     const [userSnap, reviewsSnap, skillsSnap] = await Promise.all([
-      // 👈 NEW
       userRef.get(),
       reviewsRef.get(),
-      skillsRef.get(), // 👈 NEW
+      skillsRef.get(),
     ]);
 
     if (!userSnap.exists) {
@@ -75,7 +102,7 @@ export const getUserProfile = async (req, res) => {
 
     const userData = userSnap.data();
     const reviews = reviewsSnap.docs.map((doc) => doc.data());
-    const skills = skillsSnap.docs.map((doc) => doc.data()); // 👈 NEW
+    const skills = skillsSnap.docs.map((doc) => doc.data());
 
     const publicProfile = {
       uid: userData.uid,
@@ -83,7 +110,7 @@ export const getUserProfile = async (req, res) => {
       ratingAvg: userData.ratingAvg || 0,
       ratingCount: userData.ratingCount || 0,
       reviews,
-      skills, // 👈 NEW: Attach the user's skills to the response
+      skills,
     };
 
     res.status(200).json(publicProfile);

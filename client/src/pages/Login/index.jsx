@@ -1,28 +1,21 @@
 import React, { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
 import { auth } from "../../utils/firebase";
 import {
   Users,
   Heart,
   MessageCircle,
   MapPin,
-  Star,
-  Calendar,
-  Shield,
   ArrowRight,
   Mail,
   Lock,
-  User,
-  Phone,
-  ChevronDown,
-  Search,
-  Plus,
-  Filter,
-  Bell,
-  Settings,
-  LogOut,
+  Shield,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -31,7 +24,25 @@ export default function Login() {
   const [error, setError] = useState("");
 
   const googleLogin = async () => {
-    console.log("Google login will be implemented later.");
+    setIsLoading(true);
+    setError("");
+    try {
+      const provider = new GoogleAuthProvider();
+      const userCred = await signInWithPopup(auth, provider);
+      const token = await userCred.user.getIdToken();
+      await axios.post(
+        "http://localhost:5007/users/social-login",
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      window.location.href = "/home";
+    } catch (err) {
+      setError(err.message);
+      setIsLoading(false);
+    }
   };
 
   const emailLogin = async (e) => {
@@ -39,20 +50,13 @@ export default function Login() {
     setIsLoading(true);
     setError("");
     try {
-      // 1️⃣ Firebase Auth login
       const userCred = await signInWithEmailAndPassword(auth, email, password);
-
-      // 2️⃣ Get token
       const token = await userCred.user.getIdToken();
-
-      // 3️⃣ Backend /status validation
       const res = await fetch("http://localhost:5007/users/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      console.log("Backend status check:", data);
       if (res.ok && data.uid) {
-        console.log("User profile:", data);
         window.location.href = "/home";
       } else {
         setError("Login failed. Please try again.");
@@ -65,7 +69,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      {/* Header */}
       <div className="absolute top-0 left-0 right-0 p-6">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center space-x-2">
@@ -76,10 +79,7 @@ export default function Login() {
           </div>
         </div>
       </div>
-
-      {/* Main Content */}
       <div className="flex min-h-screen">
-        {/* Left Side - Hero */}
         <div className="hidden lg:flex lg:w-1/2 items-center justify-center p-12">
           <div className="max-w-md">
             <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-green-500 rounded-xl flex items-center justify-center mb-6">
@@ -117,8 +117,6 @@ export default function Login() {
             </div>
           </div>
         </div>
-
-        {/* Right Side - Login Form */}
         <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
           <div className="w-full max-w-md">
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
@@ -130,8 +128,6 @@ export default function Login() {
                   Sign in to your neighborhood
                 </p>
               </div>
-
-              {/* Google Login */}
               <button
                 onClick={googleLogin}
                 disabled={isLoading}
@@ -157,7 +153,6 @@ export default function Login() {
                 </svg>
                 <span>Continue with Google</span>
               </button>
-
               <div className="relative mb-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-200"></div>
@@ -168,8 +163,6 @@ export default function Login() {
                   </span>
                 </div>
               </div>
-
-              {/* Email Login Form */}
               <form onSubmit={emailLogin} className="space-y-4">
                 <div>
                   <div className="relative">
@@ -183,7 +176,6 @@ export default function Login() {
                     />
                   </div>
                 </div>
-
                 <div>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
@@ -196,7 +188,6 @@ export default function Login() {
                     />
                   </div>
                 </div>
-
                 <div className="flex items-center justify-between text-sm">
                   <label className="flex items-center space-x-2 text-gray-600">
                     <input
@@ -209,11 +200,9 @@ export default function Login() {
                     Forgot password?
                   </a>
                 </div>
-
                 {error && (
                   <p className="text-red-500 text-sm text-center">{error}</p>
                 )}
-
                 <button
                   type="submit"
                   disabled={isLoading}
@@ -229,7 +218,6 @@ export default function Login() {
                   )}
                 </button>
               </form>
-
               <p className="text-center text-gray-600 text-sm mt-6">
                 Don't have an account?{" "}
                 <a
