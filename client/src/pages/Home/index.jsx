@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { auth } from "../../utils/firebase";
@@ -18,7 +18,7 @@ import { getMatchesForUser } from "../../api/matches";
 import NewPostModal from "../../components/NewPostModal";
 import NewSkillModal from "../../components/SkillModal";
 import ApplyModal from "../../components/ApplyModal";
-import ReportModal from "../../components/ReportModal"; // Make sure this is importe
+import ReportModal from "../../components/ReportModal";
 
 // Icon Imports
 import {
@@ -36,7 +36,6 @@ import {
   MoreVertical,
   Flag,
 } from "lucide-react";
-
 import Nearhelp_logo from "../../assets/Nearhelp_logo/help.png";
 import {
   collection,
@@ -66,10 +65,8 @@ const PostSkeleton = () => (
 );
 
 const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
-  // 👇 1. ADD STATE for the report menu and modal
   const [menuOpen, setMenuOpen] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-
   const isNeed = type === "needs";
   const currentUser = auth.currentUser;
   const isOwnPost = currentUser?.uid === item.ownerUid;
@@ -80,7 +77,6 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
     const date = item.createdAt.seconds
       ? new Date(item.createdAt.seconds * 1000)
       : new Date(item.createdAt);
-
     if (!isNaN(date)) {
       timeAgo = formatDistanceToNow(date, { addSuffix: true });
     }
@@ -88,11 +84,11 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
 
   return (
     <div
-      className={`relative bg-white rounded-xl shadow-sm p-6 hover:shadow-md  transition-shadow ${
+      className={`relative bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow ${
         !isNeed && "border-purple-100"
       }`}
     >
-      {!isOwnPost && (
+      {!isOwnPost && !isAnonymous && (
         <div className="absolute top-4 right-4 z-10">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
@@ -121,11 +117,8 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
           )}
         </div>
       )}
-
       <div className="flex justify-between items-start mb-4">
-        {/* This block is now conditional based on whether the post is anonymous */}
-        {item.isAnonymous ? (
-          // --- UI for ANONYMOUS posts (Not a link) ---
+        {isAnonymous ? (
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-gray-300">
               <span className="text-gray-600 font-bold text-lg">?</span>
@@ -135,7 +128,6 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
             </div>
           </div>
         ) : (
-          // --- UI for REGULAR posts (Is a link) ---
           <Link
             to={`/profile/${item.ownerUid}`}
             className="flex items-center space-x-3 group relative"
@@ -199,8 +191,6 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
           </button>
         )}
       </div>
-
-      {/* 👇 4. RENDER the ReportModal when its state is true */}
       {showReportModal && (
         <ReportModal
           item={item}
@@ -212,7 +202,6 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
   );
 };
 
-// --- The rest of your HomePage component is completely unchanged ---
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState(null);
@@ -221,14 +210,32 @@ export default function HomePage() {
   const [loadingFeeds, setLoadingFeeds] = useState(true);
   const [view, setView] = useState("needs");
   const [appCount, setAppCount] = useState(0);
-  const [matchCount, setMatchCount] = useState(0);
+  const [allMatches, setAllMatches] = useState([]);
   const [appliedNeedIds, setAppliedNeedIds] = useState(new Set());
   const [showNeedModal, setShowNeedModal] = useState(false);
   const [showSkillModal, setShowSkillModal] = useState(false);
   const [activeItem, setActiveItem] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [allMatches, setAllMatches] = useState([]);
+
+  // ✅ MOVED HOOKS TO TOP: This fixes the "Rendered more hooks" error.
+  const filteredPosts = useMemo(() => {
+    if (!searchTerm) return posts;
+    return posts.filter(
+      (post) =>
+        post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        post.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [searchTerm, posts]);
+
+  const filteredSkills = useMemo(() => {
+    if (!searchTerm) return skills;
+    return skills.filter(
+      (skill) =>
+        skill.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        skill.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [searchTerm, skills]);
 
   const loadFeeds = async () => {
     setLoadingFeeds(true);
@@ -247,32 +254,42 @@ export default function HomePage() {
 
   useEffect(() => {
     loadFeeds();
-    if (!user) return;
+  }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    const db = getFirestore();
+    const q = query(
+      collection(db, "applications"),
+      where("seekerUid", "==", user.uid),
+      where("status", "==", "pending")
+    );
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      setAppCount(querySnapshot.size);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
     const fetchData = async () => {
       try {
         const token = await auth.currentUser.getIdToken();
-        const [profileData, appsData, matchesData, sentAppsData] =
-          await Promise.all([
-            axios.get("http://localhost:5007/users/me", {
-              headers: { Authorization: `Bearer ${token}` },
-            }),
-            getApplicationsForOwner(),
-            getMatchesForUser(),
-            getApplicationsByHelper(),
-          ]);
+        const [profileData, matchesData, sentAppsData] = await Promise.all([
+          axios.get("http://localhost:5007/users/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          getMatchesForUser(),
+          getApplicationsByHelper(),
+        ]);
         setProfile(profileData.data);
-        // setAppCount(appsData.filter((a) => a.status === "pending").length);
-        setMatchCount(matchesData.length);
+        setAllMatches(matchesData);
         setAppliedNeedIds(new Set(sentAppsData.map((app) => app.needId)));
       } catch (error) {
         console.error("Error fetching initial data:", error);
       }
     };
-
     fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
   }, [user]);
 
   const handleLogout = async () => {
@@ -288,50 +305,13 @@ export default function HomePage() {
       );
     }
   };
-  useEffect(() => {
-    if (!user) {
-      setAppCount(0); // Clear count if user logs ou
-      return;
-    }
-    const db = getFirestore();
-
-    const q = query(
-      collection(db, "applications"),
-      where("seekerUid", "==", user.uid),
-      where("status", "==", "pending")
-    );
-
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const pendingCount = querySnapshot.size;
-      console.log(
-        `Real-time update: You have ${pendingCount} pending applications.`
-      );
-      setAppCount(pendingCount);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  useEffect(() => {
-    const loadMatchData = async () => {
-      if (user) {
-        const matches = await getMatchesForUser();
-        setAllMatches(matches);
-      }
-    };
-    loadMatchData();
-    const iv = setInterval(loadMatchData, 30000);
-    return () => clearInterval(iv);
-  }, [user]);
-
-  const ActiveMatchCount = allMatches.filter(
-    (match) => match.status != "completed"
-  ).length;
-  // console.log(ActiveMatchCount);
 
   if (authLoading) return null;
   if (!user) return <p>Please login to continue.</p>;
 
+  const activeMatchCount = allMatches.filter(
+    (match) => match.status !== "completed"
+  ).length;
   const displayName = profile?.name || user.displayName || user.email;
   const initials =
     displayName
@@ -347,7 +327,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/home" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r  rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r rounded-lg flex items-center justify-center">
                 <img
                   src={Nearhelp_logo}
                   className="w-5 h-5"
@@ -449,7 +429,7 @@ export default function HomePage() {
                             <FileText
                               size={16}
                               className="mr-3 text-gray-500"
-                            />{" "}
+                            />
                             My Applications
                           </div>
                           {appCount > 0 && (
@@ -465,7 +445,7 @@ export default function HomePage() {
                           <MessageSquare
                             size={16}
                             className="mr-3 text-gray-500"
-                          />{" "}
+                          />
                           Messages
                         </Link>
                       </div>
@@ -500,7 +480,7 @@ export default function HomePage() {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-green-100 text-sm">Active Chats</p>
-                <p className="text-2xl font-bold">{ActiveMatchCount}</p>
+                <p className="text-2xl font-bold">{activeMatchCount}</p>
               </div>
               <MessageSquare className="w-10 h-10 text-green-200" />
             </div>
@@ -549,16 +529,18 @@ export default function HomePage() {
               <PostSkeleton />
             </>
           ) : view === "needs" ? (
-            posts.length === 0 ? (
+            filteredPosts.length === 0 ? (
               <div className="text-center py-16 bg-white rounded-xl shadow-sm">
                 <FileText className="mx-auto w-12 h-12 text-gray-400 mb-4" />
                 <h3 className="text-xl font-semibold">
-                  No requests posted yet
+                  {searchTerm
+                    ? "No matching requests found"
+                    : "No requests posted yet"}
                 </h3>
               </div>
             ) : (
               <div className="space-y-6">
-                {posts.map((post) => (
+                {filteredPosts.map((post) => (
                   <FeedCard
                     key={post.needId}
                     item={post}
@@ -569,14 +551,19 @@ export default function HomePage() {
                 ))}
               </div>
             )
-          ) : skills.length === 0 ? (
+          ) : // Skills view
+          filteredSkills.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-xl shadow-sm">
               <Users className="mx-auto w-12 h-12 text-gray-400 mb-4" />
-              <h3 className="text-xl font-semibold">No skills offered yet</h3>
+              <h3 className="text-xl font-semibold">
+                {searchTerm
+                  ? "No matching skills found"
+                  : "No skills offered yet"}
+              </h3>
             </div>
           ) : (
             <div className="space-y-6">
-              {skills.map((skill) => (
+              {filteredSkills.map((skill) => (
                 <FeedCard
                   key={skill.skillId}
                   item={skill}

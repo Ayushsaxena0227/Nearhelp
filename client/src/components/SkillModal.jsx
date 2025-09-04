@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { createSkillAPI } from "../api/skill";
-import { useLocation } from "../hooks/useLocation";
-import { X, PlusCircle, AlertTriangle, CheckCircle } from "lucide-react";
+import { X, PlusCircle, CheckCircle } from "lucide-react";
 
 export default function NewSkillModal({ onClose, onSkillCreated }) {
   const [title, setTitle] = useState("");
@@ -10,15 +9,16 @@ export default function NewSkillModal({ onClose, onSkillCreated }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const isFormValid =
-    title.trim() && category.trim() && description.trim() && location;
+  // 👇 FIX: Removed 'location' from the validation
+  const isFormValid = title.trim() && category.trim() && description.trim();
 
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!isFormValid) return;
     setLoading(true);
     try {
-      await createSkillAPI({ title, category, description, location });
+      // 👇 FIX: Removed 'location' from the data sent to the API
+      await createSkillAPI({ title, category, description });
       setSuccess(true);
       setTimeout(() => {
         onSkillCreated();

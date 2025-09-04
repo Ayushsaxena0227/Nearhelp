@@ -7,8 +7,11 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  ArrowLeft,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { SendToBack } from "lucide-react";
+import { SendToBackIcon } from "lucide-react";
 
 export default function MyApplications() {
   const [applications, setApplications] = useState([]);
@@ -97,6 +100,9 @@ export default function MyApplications() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div className="mb-4 sm:mb-0">
+              <button onClick={() => navigate(-1)}>
+                <ArrowLeft className="cursor-pointer" />
+              </button>
               <h1 className="text-2xl font-bold text-gray-900">
                 Applications on My Posts
               </h1>

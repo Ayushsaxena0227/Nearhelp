@@ -17,5 +17,6 @@ export const getSkillsAPI = async () => {
   const res = await axios.get(`${API_URL}/skills`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  console.log(res);
   return res.data;
 };

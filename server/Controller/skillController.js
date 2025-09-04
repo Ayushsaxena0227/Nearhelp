@@ -34,7 +34,6 @@ export const createSkill = async (req, res) => {
   }
 };
 
-// This is now the main function for fetching all skills
 export const getSkills = async (req, res) => {
   try {
     const snapshot = await admin
@@ -42,7 +41,11 @@ export const getSkills = async (req, res) => {
       .collection("skills")
       .orderBy("createdAt", "desc")
       .get();
-    const skills = snapshot.docs.map((doc) => doc.data());
+    const skills = snapshot.docs.map((doc) => ({
+      ...doc.data(),
+      createdAt: doc.data().createdAt ? doc.data().createdAt.toDate() : null,
+    }));
+
     res.status(200).json(skills);
   } catch (err) {
     console.error("Error fetching skills:", err);
