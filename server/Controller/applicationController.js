@@ -61,10 +61,31 @@ export const applyToNeed = async (req, res) => {
       needOwnerName: need.ownerName || "",
     };
 
-    // 4) Save application
     await admin.firestore().collection("applications").doc(appId).set(newApp);
+    const seekerProfileSnap = await admin
+      .firestore()
+      .collection("users")
+      .doc(need.ownerUid)
+      .get();
 
-    // 5) Return created application
+    if (seekerProfileSnap.exists) {
+      const seekerData = seekerProfileSnap.data();
+      if (seekerData && seekerData.fcmToken) {
+        const message = {
+          notification: {
+            title: "New Application on Your Post!",
+            // We need the helper's name for the message
+            body: `${req.user.name || "Someone"} offered to help with "${
+              need.title
+            }".`,
+          },
+          token: seekerData.fcmToken,
+        };
+
+        await admin.messaging().send(message);
+        console.log("Successfully sent notification.");
+      }
+    }
     return res.status(200).json(newApp);
   } catch (err) {
     console.error("applyToNeed error:", err);
@@ -72,9 +93,6 @@ export const applyToNeed = async (req, res) => {
   }
 };
 
-/**
- * Get all applications for a single need
- */
 export const getApplicationsForNeed = async (req, res) => {
   try {
     const { needId } = req.params;

@@ -119,3 +119,24 @@ export const getUserProfile = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const saveFCMToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+    const uid = req.user.uid;
+
+    if (!token) {
+      return res.status(400).json({ error: "Token is required." });
+    }
+
+    const userRef = admin.firestore().collection("users").doc(uid);
+    await userRef.update({
+      fcmToken: token, // Save the token
+    });
+
+    res.status(200).json({ message: "Token saved successfully." });
+  } catch (err) {
+    console.error("Error saving FCM token:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
