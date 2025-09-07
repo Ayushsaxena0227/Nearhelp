@@ -11,12 +11,32 @@ export const createSkillAPI = async (skillData) => {
   return res.data;
 };
 
-// Reverted to the simple getSkills function
-export const getSkillsAPI = async () => {
+// This is the old function to get ALL skills
+export const getSkillsAPI = async (location = null, radius = 25) => {
   const token = await auth.currentUser.getIdToken();
+  const params = {};
+  if (location) {
+    params.userLat = location.latitude;
+    params.userLon = location.longitude;
+    params.radius = radius;
+  }
   const res = await axios.get(`${API_URL}/skills`, {
     headers: { Authorization: `Bearer ${token}` },
+    params,
   });
-  // console.log(res);
+  return res.data;
+};
+
+// 👇 THIS IS THE NEW FUNCTION THAT WAS MISSING
+export const getNearbySkillsAPI = async (location, radius = 10) => {
+  const token = await auth.currentUser.getIdToken();
+  const res = await axios.get(`${API_URL}/skills/nearby`, {
+    headers: { Authorization: `Bearer ${token}` },
+    params: {
+      lat: location.latitude,
+      lng: location.longitude,
+      radius,
+    },
+  });
   return res.data;
 };

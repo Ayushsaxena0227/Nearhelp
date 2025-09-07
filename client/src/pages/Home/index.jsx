@@ -1,68 +1,62 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
 import { auth } from "../../utils/firebase";
-import { formatDistanceToNow } from "date-fns";
-import axios from "axios";
-
-// API Imports
-import { getNeedsAPI } from "../../api/need";
-import { getSkillsAPI } from "../../api/skill";
+import { useAuth } from "../../hooks/useAuth";
 import {
-  getApplicationsForOwner,
-  getApplicationsByHelper,
-} from "../../api/application";
+  Bell,
+  ChevronDown,
+  CheckCircle,
+  Clock,
+  FileText,
+  LogOut,
+  MessageSquare,
+  MoreVertical,
+  Plus,
+  Search,
+  User,
+  Users,
+  Flag,
+  MapPin,
+  Navigation,
+  Settings,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import Nearhelp_logo from "../../assets/Nearhelp_logo/help.png";
+import { getNeedsAPI } from "../../api/need";
 import { getMatchesForUser } from "../../api/matches";
+import { getApplicationsByHelper } from "../../api/application";
+import { getNearbyNeedsAPI } from "../../api/need";
 
-// Component Imports
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
+import axios from "axios";
 import NewPostModal from "../../components/NewPostModal";
 import NewSkillModal from "../../components/SkillModal";
 import ApplyModal from "../../components/ApplyModal";
 import ReportModal from "../../components/ReportModal";
+import { getNearbySkillsAPI, getSkillsAPI } from "../../api/skill";
+// import PostSkeleton from "../../components/";
 
-// Icon Imports
-import {
-  Users,
-  Search,
-  Bell,
-  Plus,
-  LogOut,
-  MessageSquare,
-  FileText,
-  Clock,
-  CheckCircle,
-  ChevronDown,
-  User,
-  MoreVertical,
-  Flag,
-} from "lucide-react";
-import Nearhelp_logo from "../../assets/Nearhelp_logo/help.png";
-import {
-  collection,
-  getFirestore,
-  onSnapshot,
-  query,
-  where,
-} from "firebase/firestore";
+const LocationDisplay = ({ location, distance }) => {
+  if (!location) return null;
 
-const PostSkeleton = () => (
-  <div className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
-    <div className="flex items-center space-x-3 mb-4">
-      <div className="w-10 h-10 rounded-full bg-gray-200"></div>
-      <div>
-        <div className="h-3 w-24 bg-gray-200 rounded mb-1"></div>
-        <div className="h-2 w-16 bg-gray-200 rounded"></div>
-      </div>
+  return (
+    <div className="flex items-center space-x-1 text-sm text-gray-500 mt-2">
+      <MapPin className="w-3 h-3" />
+      <span>{location.locationName}</span>
+      {distance !== undefined && (
+        <span className="text-blue-600 font-medium">
+          • {distance === 0 ? "Very close" : `${distance}km away`}
+        </span>
+      )}
     </div>
-    <div className="h-4 w-3/4 bg-gray-200 rounded mb-2"></div>
-    <div className="h-4 w-1/2 bg-gray-200 rounded mb-4"></div>
-    <div className="h-3 w-full bg-gray-200 rounded mb-1"></div>
-    <div className="h-3 w-5/6 bg-gray-200 rounded mb-4"></div>
-    <div className="flex justify-end">
-      <div className="h-8 w-24 bg-gray-200 rounded"></div>
-    </div>
-  </div>
-);
+  );
+};
 
 const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -163,6 +157,10 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
       </div>
       <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
       <p className="text-gray-700 mb-4">{item.description}</p>
+
+      {/* Location display */}
+      <LocationDisplay location={item.location} distance={item.distance} />
+
       <div className="flex justify-end mt-4">
         {isOwnPost ? (
           <span className="inline-flex items-center text-sm text-gray-500">
@@ -218,13 +216,22 @@ export default function HomePage() {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Location-related states
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationRadius, setLocationRadius] = useState(10); // km
+  const [showLocationSettings, setShowLocationSettings] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+
   // ✅ MOVED HOOKS TO TOP: This fixes the "Rendered more hooks" error.
   const filteredPosts = useMemo(() => {
     if (!searchTerm) return posts;
     return posts.filter(
       (post) =>
         post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        post.description.toLowerCase().includes(searchTerm.toLowerCase())
+        post.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        post.location?.locationName
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase())
     );
   }, [searchTerm, posts]);
 
@@ -233,28 +240,69 @@ export default function HomePage() {
     return skills.filter(
       (skill) =>
         skill.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        skill.description.toLowerCase().includes(searchTerm.toLowerCase())
+        skill.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        skill.location?.locationName
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase())
     );
   }, [searchTerm, skills]);
+
+  // Get user's current location on component mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      setLocationLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          setLocationLoading(false);
+        },
+        (error) => {
+          console.log("Location access denied or failed:", error);
+          setLocationLoading(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 600000, // 10 minutes
+        }
+      );
+    }
+  }, []);
 
   const loadFeeds = async () => {
     setLoadingFeeds(true);
     try {
-      const [needsData, skillsData] = await Promise.all([
-        getNeedsAPI(),
-        getSkillsAPI(),
-      ]);
-      setPosts(needsData);
-      setSkills(skillsData);
+      if (userLocation) {
+        // If we have a location, fetch nearby items
+        const [needsData, skillsData] = await Promise.all([
+          getNearbyNeedsAPI(userLocation, locationRadius),
+          getNearbySkillsAPI(userLocation, locationRadius),
+        ]);
+        setPosts(needsData);
+        setSkills(skillsData);
+      } else {
+        // Fallback if location is not available
+        const [needsData, skillsData] = await Promise.all([
+          getNeedsAPI(),
+          getSkillsAPI(),
+        ]);
+        setPosts(needsData);
+        setSkills(skillsData);
+      }
     } catch (error) {
       console.error("Error loading feeds:", error);
+      // Set to empty array on error to prevent crash
+      setPosts([]);
+      setSkills([]);
     }
     setLoadingFeeds(false);
   };
-
   useEffect(() => {
     loadFeeds();
-  }, []);
+  }, [userLocation, locationRadius]);
 
   useEffect(() => {
     if (!user) return;
@@ -306,6 +354,36 @@ export default function HomePage() {
     }
   };
 
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by this browser");
+      return;
+    }
+
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setLocationLoading(false);
+      },
+      (error) => {
+        console.error("Location error:", error);
+        alert(
+          "Unable to get your location. Please check your browser settings."
+        );
+        setLocationLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 600000,
+      }
+    );
+  };
+
   if (authLoading) return null;
   if (!user) return <p>Please login to continue.</p>;
 
@@ -341,7 +419,7 @@ export default function HomePage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search..."
+                  placeholder="Search posts or locations..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-4 py-2.5 border-gray-400 shadow-xl border rounded-xl"
@@ -349,6 +427,111 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              {/* Location controls */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowLocationSettings(!showLocationSettings)}
+                  className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    userLocation
+                      ? "bg-green-100 text-green-700 hover:bg-green-200"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                  disabled={locationLoading}
+                >
+                  <MapPin
+                    className={`w-4 h-4 ${
+                      locationLoading ? "animate-pulse" : ""
+                    }`}
+                  />
+                  <span>
+                    {locationLoading
+                      ? "Getting location..."
+                      : userLocation
+                      ? `${locationRadius}km radius`
+                      : "Set location"}
+                  </span>
+                </button>
+
+                {showLocationSettings && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowLocationSettings(false)}
+                    />
+                    <div className="absolute top-12 right-0 bg-white rounded-lg shadow-lg border p-4 w-80 z-20">
+                      <h3 className="font-medium mb-4 flex items-center">
+                        <Settings className="w-4 h-4 mr-2" />
+                        Location Settings
+                      </h3>
+
+                      <div className="space-y-4">
+                        {/* Current location status */}
+                        <div className="text-sm">
+                          <span className="text-gray-600">Status: </span>
+                          <span
+                            className={
+                              userLocation ? "text-green-600" : "text-gray-500"
+                            }
+                          >
+                            {userLocation
+                              ? "Location enabled"
+                              : "Location not set"}
+                          </span>
+                        </div>
+
+                        {/* Search radius */}
+                        <div>
+                          <label className="block text-sm text-gray-600 mb-2">
+                            Search radius: {locationRadius}km
+                          </label>
+                          <input
+                            type="range"
+                            min="1"
+                            max="50"
+                            value={locationRadius}
+                            onChange={(e) =>
+                              setLocationRadius(parseInt(e.target.value))
+                            }
+                            className="w-full accent-blue-600"
+                          />
+                          <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>1km (nearby)</span>
+                            <span>50km (city-wide)</span>
+                          </div>
+                        </div>
+
+                        {/* Get location button */}
+                        <button
+                          onClick={getCurrentLocation}
+                          disabled={locationLoading}
+                          className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 w-full transition-colors"
+                        >
+                          <Navigation
+                            className={`w-4 h-4 ${
+                              locationLoading ? "animate-spin" : ""
+                            }`}
+                          />
+                          <span>
+                            {locationLoading
+                              ? "Getting location..."
+                              : "Update location"}
+                          </span>
+                        </button>
+
+                        {/* Info text */}
+                        <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded">
+                          <p>
+                            💡 Setting your location helps you see nearby posts
+                            first and increases your chances of meaningful
+                            connections!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
               <button
                 onClick={() => setShowSkillModal(true)}
                 className="px-4 py-2 bg-purple-600 text-white rounded-xl flex items-center space-x-2 text-sm font-semibold"
@@ -499,6 +682,11 @@ export default function HomePage() {
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-900">
               {view === "needs" ? "Community Requests" : "Offered Skills"}
+              {userLocation && (
+                <span className="text-sm font-normal text-gray-500 ml-2">
+                  (within {locationRadius}km)
+                </span>
+              )}
             </h2>
             <div className="flex items-center bg-gray-200 p-1 rounded-full">
               <button
@@ -525,8 +713,9 @@ export default function HomePage() {
           </div>
           {loadingFeeds ? (
             <>
-              <PostSkeleton />
-              <PostSkeleton />
+              <div>loading</div>
+              {/* <PostSkeleton />
+              <PostSkeleton /> */}
             </>
           ) : view === "needs" ? (
             filteredPosts.length === 0 ? (
@@ -535,8 +724,21 @@ export default function HomePage() {
                 <h3 className="text-xl font-semibold">
                   {searchTerm
                     ? "No matching requests found"
+                    : userLocation
+                    ? `No requests found within ${locationRadius}km`
                     : "No requests posted yet"}
                 </h3>
+                {userLocation && !searchTerm && (
+                  <p className="text-gray-500 mt-2">
+                    Try increasing your search radius or{" "}
+                    <button
+                      onClick={() => setLocationRadius(50)}
+                      className="text-blue-600 hover:underline"
+                    >
+                      search city-wide
+                    </button>
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-6">
@@ -558,8 +760,21 @@ export default function HomePage() {
               <h3 className="text-xl font-semibold">
                 {searchTerm
                   ? "No matching skills found"
+                  : userLocation
+                  ? `No skills found within ${locationRadius}km`
                   : "No skills offered yet"}
               </h3>
+              {userLocation && !searchTerm && (
+                <p className="text-gray-500 mt-2">
+                  Try increasing your search radius or{" "}
+                  <button
+                    onClick={() => setLocationRadius(50)}
+                    className="text-blue-600 hover:underline"
+                  >
+                    search city-wide
+                  </button>
+                </p>
+              )}
             </div>
           ) : (
             <div className="space-y-6">
