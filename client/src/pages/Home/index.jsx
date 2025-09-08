@@ -19,6 +19,7 @@ import {
   MapPin,
   Navigation,
   Settings,
+  XCircle,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Nearhelp_logo from "../../assets/Nearhelp_logo/help.png";
@@ -68,9 +69,12 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
 
   let timeAgo = "Just now";
   if (item.createdAt) {
+    // Check if it's a Firestore timestamp object OR a valid date string
     const date = item.createdAt.seconds
       ? new Date(item.createdAt.seconds * 1000)
       : new Date(item.createdAt);
+
+    // Final check to make sure the date is valid before formatting
     if (!isNaN(date)) {
       timeAgo = formatDistanceToNow(date, { addSuffix: true });
     }
@@ -353,7 +357,10 @@ export default function HomePage() {
       );
     }
   };
-
+  const clearLocationFilter = () => {
+    setUserLocation(null);
+    setShowLocationSettings(false);
+  };
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by this browser");
@@ -405,7 +412,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/home" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
                 <img
                   src={Nearhelp_logo}
                   className="w-5 h-5"
@@ -431,10 +438,10 @@ export default function HomePage() {
               <div className="relative">
                 <button
                   onClick={() => setShowLocationSettings(!showLocationSettings)}
-                  className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm transition-colors font-semibold ${
                     userLocation
-                      ? "bg-green-100 text-green-700 hover:bg-green-200"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-green-100 text-green-800 hover:bg-green-200"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                   disabled={locationLoading}
                 >
@@ -445,44 +452,50 @@ export default function HomePage() {
                   />
                   <span>
                     {locationLoading
-                      ? "Getting location..."
+                      ? "Finding..."
                       : userLocation
-                      ? `${locationRadius}km radius`
-                      : "Set location"}
+                      ? `${locationRadius}km Radius`
+                      : "Set Location"}
                   </span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${
+                      showLocationSettings ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
-
                 {showLocationSettings && (
                   <>
                     <div
                       className="fixed inset-0 z-10"
                       onClick={() => setShowLocationSettings(false)}
                     />
-                    <div className="absolute top-12 right-0 bg-white rounded-lg shadow-lg border p-4 w-80 z-20">
-                      <h3 className="font-medium mb-4 flex items-center">
+                    <div className="absolute top-12 right-0 bg-white rounded-lg shadow-lg border p-4 w-72 z-20">
+                      <h3 className="font-medium mb-4 flex items-center text-gray-800">
                         <Settings className="w-4 h-4 mr-2" />
                         Location Settings
                       </h3>
-
                       <div className="space-y-4">
-                        {/* Current location status */}
                         <div className="text-sm">
                           <span className="text-gray-600">Status: </span>
                           <span
                             className={
-                              userLocation ? "text-green-600" : "text-gray-500"
+                              userLocation
+                                ? "text-green-600 font-semibold"
+                                : "text-gray-500"
                             }
                           >
                             {userLocation
-                              ? "Location enabled"
-                              : "Location not set"}
+                              ? "Location Enabled"
+                              : "Location Not Set"}
                           </span>
                         </div>
-
-                        {/* Search radius */}
                         <div>
                           <label className="block text-sm text-gray-600 mb-2">
-                            Search radius: {locationRadius}km
+                            Search radius:{" "}
+                            <span className="font-bold">
+                              {locationRadius}km
+                            </span>
                           </label>
                           <input
                             type="range"
@@ -495,12 +508,17 @@ export default function HomePage() {
                             className="w-full accent-blue-600"
                           />
                           <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>1km (nearby)</span>
-                            <span>50km (city-wide)</span>
+                            <span>1km</span>
+                            <span>50km</span>
                           </div>
                         </div>
-
-                        {/* Get location button */}
+                        <button
+                          onClick={clearLocationFilter}
+                          className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 text-sm font-semibold transition-colors"
+                        >
+                          <XCircle size={16} />
+                          <span>Show All (No Filter)</span>
+                        </button>
                         <button
                           onClick={getCurrentLocation}
                           disabled={locationLoading}
@@ -512,43 +530,29 @@ export default function HomePage() {
                             }`}
                           />
                           <span>
-                            {locationLoading
-                              ? "Getting location..."
-                              : "Update location"}
+                            {locationLoading ? "Getting..." : "Update Location"}
                           </span>
                         </button>
-
-                        {/* Info text */}
-                        <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded">
-                          <p>
-                            💡 Setting your location helps you see nearby posts
-                            first and increases your chances of meaningful
-                            connections!
-                          </p>
-                        </div>
                       </div>
                     </div>
                   </>
                 )}
               </div>
 
+              {/* The rest of the header buttons */}
               <button
                 onClick={() => setShowSkillModal(true)}
                 className="px-4 py-2 bg-purple-600 text-white rounded-xl flex items-center space-x-2 text-sm font-semibold"
               >
                 <Plus size={16} />
-                <span className="hidden sm:inline cursor-pointer">
-                  Offer Skill
-                </span>
+                <span className="hidden sm:inline">Offer Skill</span>
               </button>
               <button
                 onClick={() => setShowNeedModal(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-xl flex items-center space-x-2 text-sm font-semibold"
               >
                 <Plus size={16} />
-                <span className="hidden sm:inline cursor-pointer">
-                  Post a Need
-                </span>
+                <span className="hidden sm:inline">Post a Need</span>
               </button>
               <Link
                 to="/my-applications"
@@ -587,7 +591,7 @@ export default function HomePage() {
                       className="fixed inset-0 z-10"
                       onClick={() => setOpenDropdown(null)}
                     />
-                    <div className="absolute top-12 right-0 bg-white rounded-xl shadow-lg border w-64 z-20 animate-fade-in-down">
+                    <div className="absolute top-12 right-0 bg-white rounded-xl shadow-lg border w-64 z-20">
                       <div className="p-4 border-b">
                         <p className="font-semibold text-gray-800 truncate">
                           {displayName}
@@ -599,43 +603,28 @@ export default function HomePage() {
                       <div className="py-2">
                         <Link
                           to={`/profile/${user.uid}`}
-                          className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                          className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50"
                         >
-                          <User size={16} className="mr-3 text-gray-500" /> View
-                          Profile
+                          <User size={16} className="mr-3" /> View Profile
                         </Link>
                         <Link
                           to="/my-applications"
-                          className="flex items-center justify-between px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                          className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50"
                         >
-                          <div className="flex items-center">
-                            <FileText
-                              size={16}
-                              className="mr-3 text-gray-500"
-                            />
-                            My Applications
-                          </div>
-                          {appCount > 0 && (
-                            <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
-                              {appCount}
-                            </span>
-                          )}
+                          <FileText size={16} className="mr-3" /> My
+                          Applications
                         </Link>
                         <Link
                           to="/matches"
-                          className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                          className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50"
                         >
-                          <MessageSquare
-                            size={16}
-                            className="mr-3 text-gray-500"
-                          />
-                          Messages
+                          <MessageSquare size={16} className="mr-3" /> Messages
                         </Link>
                       </div>
                       <div className="border-t p-2">
                         <button
                           onClick={handleLogout}
-                          className="flex items-center px-4 py-2 w-full text-left text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                          className="flex items-center px-4 py-2 w-full text-left text-red-600 hover:bg-red-50 rounded-md"
                         >
                           <LogOut size={16} className="mr-3" /> Logout
                         </button>

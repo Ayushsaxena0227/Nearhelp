@@ -64,16 +64,24 @@ export const getNeeds = async (req, res) => {
 
     let needs = snapshot.docs.map((doc) => {
       const data = doc.data();
-      if (data.isAnonymous && data.ownerUid !== req.user.uid) {
-        // Show own anonymous posts
+      // ✅ THIS IS THE FIX: We add .toDate() to correctly format the timestamp
+      const formattedData = {
+        ...data,
+        createdAt: data.createdAt ? data.createdAt.toDate() : null,
+      };
+
+      if (
+        formattedData.isAnonymous &&
+        formattedData.ownerUid !== req.user.uid
+      ) {
         return {
-          ...data,
+          ...formattedData,
           ownerUid: "anonymous",
           ownerName: "A Neighbor",
           ownerInitials: "?",
         };
       }
-      return data;
+      return formattedData;
     });
 
     if (userLat && userLon) {
@@ -81,7 +89,7 @@ export const getNeeds = async (req, res) => {
       const userLongitude = parseFloat(userLon);
       needs = needs
         .map((need) => {
-          if (!need.location?.latitude) return { ...need, distance: Infinity }; // Put posts without location at the end
+          if (!need.location?.latitude) return { ...need, distance: Infinity };
           const distance = calculateDistance(
             userLatitude,
             userLongitude,
