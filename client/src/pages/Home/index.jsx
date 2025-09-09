@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { auth } from "../../utils/firebase";
 import { useAuth } from "../../hooks/useAuth";
+import SOSModal from "../../components/SosModal";
 import {
   Bell,
   ChevronDown,
@@ -20,6 +21,7 @@ import {
   Navigation,
   Settings,
   XCircle,
+  Siren,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Nearhelp_logo from "../../assets/Nearhelp_logo/help.png";
@@ -43,22 +45,6 @@ import ReportModal from "../../components/ReportModal";
 import { getNearbySkillsAPI, getSkillsAPI } from "../../api/skill";
 // import PostSkeleton from "../../components/";
 
-const LocationDisplay = ({ location, distance }) => {
-  if (!location) return null;
-
-  return (
-    <div className="flex items-center space-x-1 text-sm text-gray-500 mt-2">
-      <MapPin className="w-3 h-3" />
-      <span>{location.locationName}</span>
-      {distance !== undefined && (
-        <span className="text-blue-600 font-medium">
-          • {distance === 0 ? "Very close" : `${distance}km away`}
-        </span>
-      )}
-    </div>
-  );
-};
-
 const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -66,15 +52,14 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
   const currentUser = auth.currentUser;
   const isOwnPost = currentUser?.uid === item.ownerUid;
   const isAnonymous = item.ownerUid === "anonymous";
+  const isSOS = item.type === "sos";
 
   let timeAgo = "Just now";
   if (item.createdAt) {
-    // Check if it's a Firestore timestamp object OR a valid date string
     const date = item.createdAt.seconds
       ? new Date(item.createdAt.seconds * 1000)
       : new Date(item.createdAt);
 
-    // Final check to make sure the date is valid before formatting
     if (!isNaN(date)) {
       timeAgo = formatDistanceToNow(date, { addSuffix: true });
     }
@@ -82,39 +67,37 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
 
   return (
     <div
-      className={`relative bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow ${
-        !isNeed && "border-purple-100"
+      className={`relative bg-white rounded-xl shadow-sm p-6 ... ${
+        isSOS && "border-2 border-red-500 animate-pulse"
       }`}
     >
-      {!isOwnPost && !isAnonymous && (
-        <div className="absolute top-4 right-4 z-10">
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="p-2 text-gray-400 hover:bg-gray-100 rounded-full"
-          >
-            <MoreVertical size={18} />
-          </button>
-          {menuOpen && (
-            <>
-              <div
-                className="fixed inset-0"
-                onClick={() => setMenuOpen(false)}
-              />
-              <div className="absolute top-8 right-0 bg-white shadow-lg rounded-lg border w-40 z-20">
-                <button
-                  onClick={() => {
-                    setShowReportModal(true);
-                    setMenuOpen(false);
-                  }}
-                  className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                >
-                  <Flag size={14} className="mr-2" /> Report post
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      {/* Three-dot menu - only show for posts that aren't the user's own */}
+
+      <div className="absolute top-4 right-4 z-10">
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="p-2 text-gray-400 hover:bg-gray-100 rounded-full"
+        >
+          <MoreVertical size={18} />
+        </button>
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0" onClick={() => setMenuOpen(false)} />
+            <div className="absolute top-8 right-0 bg-white shadow-lg rounded-lg border w-40 z-20">
+              <button
+                onClick={() => {
+                  setShowReportModal(true);
+                  setMenuOpen(false);
+                }}
+                className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                <Flag size={14} className="mr-2" /> Report post
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
       <div className="flex justify-between items-start mb-4">
         {isAnonymous ? (
           <div className="flex items-center space-x-3">
@@ -143,10 +126,8 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
             </div>
             <div>
               <h4
-                className={`font-medium text-gray-900 transition-colors ${
-                  isNeed
-                    ? "group-hover:text-blue-600"
-                    : "group-hover:text-purple-600"
+                className={`font-medium text-gray-900 group-hover:${
+                  isNeed ? "text-blue-600" : "text-purple-600"
                 }`}
               >
                 {item.ownerName}
@@ -154,16 +135,29 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
             </div>
           </Link>
         )}
-        <span className="text-xs text-gray-500 flex items-center shrink-0">
+        <span className="text-xs text-gray-500 flex items-center shrink-0 pr-8">
           <Clock className="w-3 h-3 mr-1" />
           {timeAgo}
         </span>
       </div>
+
       <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
       <p className="text-gray-700 mb-4">{item.description}</p>
 
-      {/* Location display */}
-      <LocationDisplay location={item.location} distance={item.distance} />
+      {/* Location display - if it exists */}
+      {item.distance !== undefined && (
+        <div className="flex justify-between items-center mt-4">
+          <div className="flex items-center text-sm font-semibold text-gray-600">
+            <MapPin size={14} className="mr-1.5" />
+            <span>
+              {item.distance < 1
+                ? "Less than 1 km"
+                : `${item.distance.toFixed(1)} km`}{" "}
+              away
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end mt-4">
         {isOwnPost ? (
@@ -193,6 +187,7 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
           </button>
         )}
       </div>
+
       {showReportModal && (
         <ReportModal
           item={item}
@@ -203,6 +198,8 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
     </div>
   );
 };
+
+// export default FeedCard;
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
@@ -219,14 +216,14 @@ export default function HomePage() {
   const [activeItem, setActiveItem] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showSOSModal, setShowSOSModal] = useState(false);
 
   // Location-related states
   const [userLocation, setUserLocation] = useState(null);
-  const [locationRadius, setLocationRadius] = useState(10); // km
+  const [locationRadius, setLocationRadius] = useState(0); // km
   const [showLocationSettings, setShowLocationSettings] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
 
-  // ✅ MOVED HOOKS TO TOP: This fixes the "Rendered more hooks" error.
   const filteredPosts = useMemo(() => {
     if (!searchTerm) return posts;
     return posts.filter(
@@ -412,7 +409,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link to="/home" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r  rounded-lg flex items-center justify-center">
                 <img
                   src={Nearhelp_logo}
                   className="w-5 h-5"
@@ -420,6 +417,13 @@ export default function HomePage() {
                 />
               </div>
               <span className="text-xl font-bold text-gray-900">NearHelp</span>
+              <button
+                onClick={() => setShowSOSModal(true)}
+                className="px-4 py-2 bg-red-600 text-white rounded-xl flex items-center space-x-2 text-sm font-semibold animate-pulse"
+              >
+                <Siren size={16} />
+                <span className="hidden sm:inline">SOS</span>
+              </button>
             </Link>
             <div className="flex-1 max-w-lg mx-8">
               <div className="relative">
@@ -780,6 +784,12 @@ export default function HomePage() {
           )}
         </div>
       </main>
+      {showSOSModal && (
+        <SOSModal
+          onClose={() => setShowSOSModal(false)}
+          onPostCreated={loadFeeds}
+        />
+      )}
       {showNeedModal && (
         <NewPostModal
           onClose={() => setShowNeedModal(false)}

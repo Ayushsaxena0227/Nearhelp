@@ -8,6 +8,7 @@ import matchesRoutes from "./routes/matchesRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import skillRoutes from "./routes/skillRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import sosRoutes from "./routes/sosRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -23,6 +24,7 @@ app.use("/matches", matchesRoutes);
 app.use("/reviews", reviewRoutes);
 app.use("/skills", skillRoutes);
 app.use("/reports", reportRoutes);
+app.use("/sos", sosRoutes); // 👈 Add this line
 app.get("/", (req, res) => res.send("API is running"));
 
 const PORT = process.env.PORT || 5007;

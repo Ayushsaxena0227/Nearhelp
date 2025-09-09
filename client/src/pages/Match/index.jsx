@@ -1,12 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { getMatchesForUser } from "../../api/matches";
-import { Link } from "react-router-dom";
-import { MessageSquare, Users, Clock, ArrowRight, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  MessageSquare,
+  Users,
+  Clock,
+  ArrowRight,
+  Trash2,
+  ArrowLeftIcon,
+  ArrowBigLeftDashIcon,
+} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Matches() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const Navigate = useNavigate();
   const activematchcount = matches.filter(
     (match) => match.status !== "completed"
   ).length;
@@ -31,6 +41,10 @@ export default function Matches() {
   useEffect(() => {
     load();
   }, []);
+
+  const NavigateBack = () => {
+    Navigate(-1);
+  };
 
   // Skeleton loader
   const MatchSkeleton = () => (
@@ -97,6 +111,8 @@ export default function Matches() {
         <div className="max-w-4xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
+              <ArrowLeft onClick={NavigateBack} className="cursor-pointer" />
+
               <h1 className="text-2xl font-bold text-gray-900">
                 Your Conversations
               </h1>
