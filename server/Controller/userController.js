@@ -140,3 +140,26 @@ export const saveFCMToken = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+export const updateFCMToken = async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    const uid = req.user.uid; // from your auth middleware
+
+    if (!fcmToken) {
+      return res.status(400).json({ error: "FCM token is required" });
+    }
+
+    // Update user document with FCM token
+    await admin.firestore().collection("users").doc(uid).update({
+      fcmToken: fcmToken,
+      fcmTokenUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log(`FCM token updated for user: ${uid}`);
+    res.status(200).json({ message: "FCM token updated successfully" });
+  } catch (error) {
+    console.error("Error updating FCM token:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};

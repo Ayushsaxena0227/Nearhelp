@@ -18,12 +18,10 @@ import {
   onSnapshot,
   query,
   orderBy,
-  addDoc,
-  serverTimestamp,
   doc,
 } from "firebase/firestore";
 import { auth } from "../../utils/firebase";
-import { getMatchDetailsAPI } from "../../api/matches";
+import { getMatchDetailsAPI, sendMessage } from "../../api/matches"; // 1. Import sendMessage
 import ReviewModal from "../../components/ReviewModal";
 import { formatDistanceToNow } from "date-fns";
 
@@ -32,15 +30,11 @@ export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [match, setMatch] = useState(null);
-  const [typing, setTyping] = useState(false);
   const db = getFirestore();
   const bottomRef = useRef();
   const inputRef = useRef();
-
-  // NEW: State to control the review modal's visibility
   const [showReviewModal, setShowReviewModal] = useState(false);
 
-  // UNCHANGED: This useEffect for real-time messages is from your original file.
   useEffect(() => {
     if (!matchId) return;
     const q = query(
@@ -58,30 +52,18 @@ export default function Chat() {
     return unsub;
   }, [matchId]);
 
-  // UPDATED: This useEffect uses onSnapshot for real-time match status updates.
   useEffect(() => {
     if (!matchId) return;
     const unsub = onSnapshot(doc(db, "matches", matchId), (docSnap) => {
       if (docSnap.exists()) {
-        const fetchEnrichedDetails = async () => {
-          try {
-            const detailedMatchData = await getMatchDetailsAPI(matchId);
-            setMatch(detailedMatchData);
-          } catch (error) {
-            console.error("Failed to fetch enriched match details:", error);
-            setMatch(docSnap.data());
-          }
-        };
-        fetchEnrichedDetails();
+        getMatchDetailsAPI(matchId).then(setMatch).catch(console.error);
       } else {
-        console.error("Match document not found!");
         setMatch(null);
       }
     });
     return unsub;
   }, [matchId]);
 
-  // UNCHANGED: These useEffects for auto-scroll and auto-focus are from your original file.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -90,24 +72,27 @@ export default function Chat() {
     inputRef.current?.focus();
   }, []);
 
-  // UNCHANGED: This function for sending messages is from your original file.
+  // 👇 2. UPDATED: This function now correctly calls your backend API
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    await addDoc(collection(db, "matches", matchId, "messages"), {
-      senderUid: auth.currentUser.uid,
-      text: input.trim(),
-      createdAt: serverTimestamp(),
-    });
-    setInput("");
+    const trimmedInput = input.trim();
+    if (!trimmedInput) return;
+
+    setInput(""); // Clear input immediately for a snappy UI
+    try {
+      // Call the backend API to send the message and trigger the notification
+      await sendMessage(matchId, trimmedInput);
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      setInput(trimmedInput); // Restore input if sending fails
+      alert("Message could not be sent. Please try again.");
+    }
   };
 
-  // NEW: This function handles closing the modal after a review is submitted.
   const handleReviewSubmitted = () => {
     setShowReviewModal(false);
   };
 
-  // UNCHANGED: These helper functions are from your original file.
   const formatTime = (date) => {
     if (!date) return "";
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -128,10 +113,7 @@ export default function Chat() {
     );
   }
 
-  // Determine if the current user is the "Seeker" to show/hide the complete button.
   const isCurrentUserSeeker = auth.currentUser.uid === match.seekerUid;
-
-  // Format the last seen time correctly.
   let lastSeenText = "Online";
   if (match.otherUserLastSeen?.seconds) {
     const lastSeenDate = new Date(match.otherUserLastSeen.seconds * 1000);
@@ -142,7 +124,6 @@ export default function Chat() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      {/* Chat Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <button
@@ -164,27 +145,22 @@ export default function Chat() {
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          {/* NEW: "Mark as Complete" button */}
           {isCurrentUserSeeker && match.status !== "completed" && (
             <button
               onClick={() => setShowReviewModal(true)}
               className="flex items-center px-4 py-2 text-sm font-semibold bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-sm"
             >
-              <CheckCircle size={16} className="mr-2" />
-              Mark as Complete
+              <CheckCircle size={16} className="mr-2" /> Mark as Complete
             </button>
           )}
-          {/* NEW: "Completed" badge */}
           {match.status === "completed" && (
             <div className="flex items-center px-4 py-2 text-sm font-medium text-green-700 bg-green-100 rounded-lg">
-              <CheckCircle size={16} className="mr-2" />
-              Completed
+              <CheckCircle size={16} className="mr-2" /> Completed
             </div>
           )}
         </div>
       </div>
 
-      {/* Need Context Banner */}
       <div className="bg-blue-50 border-b border-blue-100 px-4 py-3">
         <div className="flex items-center justify-center">
           <div className="text-center">
@@ -198,8 +174,6 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Messages Area - This is your complete, original code block */}
-      {/* Messages Area - This is your complete, original code block */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
@@ -210,7 +184,6 @@ export default function Chat() {
           </div>
         ) : (
           messages.map((msg, index) => {
-            // NEW: Check if the message is a system message
             if (msg.type === "system") {
               return (
                 <div key={msg.id} className="flex justify-center my-4">
@@ -221,8 +194,6 @@ export default function Chat() {
                 </div>
               );
             }
-
-            // Your existing logic for rendering user messages
             const isOwnMessage = msg.senderUid === auth.currentUser.uid;
             const showTimeStamp =
               index === 0 ||
@@ -285,13 +256,12 @@ export default function Chat() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Message Input - This is your complete, original code block */}
       <div className="bg-white border-t border-gray-200 p-4">
         <form onSubmit={handleSend} className="flex items-end space-x-3">
           <div className="flex-1 relative">
             <textarea
               ref={inputRef}
-              className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none max-h-32 min-h-[48px] text-sm placeholder-gray-500"
+              className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 resize-none max-h-32 text-sm"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -300,7 +270,7 @@ export default function Chat() {
                   handleSend(e);
                 }
               }}
-              placeholder="Type a message... (Enter to send, Shift+Enter for new line)"
+              placeholder="Type a message..."
               rows={1}
               style={{ height: "auto", minHeight: "48px" }}
               onInput={(e) => {
@@ -327,7 +297,6 @@ export default function Chat() {
         </p>
       </div>
 
-      {/* NEW: Render the ReviewModal when its state is true */}
       {showReviewModal && (
         <ReviewModal
           match={match}

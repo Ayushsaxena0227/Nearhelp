@@ -8,13 +8,51 @@ import Chat from "./pages/Chat";
 import Matches from "./pages/Match";
 import HomePage from "./pages/Home";
 import ProfilePage from "./pages/Profile";
-import NotificationHandler from "./components/NotificationHandler";
+import { useEffect, useContext } from "react";
 import { Toaster } from "react-hot-toast";
+import {
+  handleForegroundMessages,
+  initializeNotifications,
+} from "./utils/firebase-messaging-config";
+// Import your auth context (adjust the import path as needed)
+// import { AuthContext } from "./contexts/AuthContext";
 
 function App() {
+  // If you have an auth context, use it like this:
+  // const { user, isAuthenticated } = useContext(AuthContext);
+
+  useEffect(() => {
+    // Always setup foreground message handling
+    handleForegroundMessages();
+  }, []);
+
+  // Separate effect for authenticated users
+  useEffect(() => {
+    const setupNotificationsForAuthenticatedUser = async () => {
+      // Check if user is authenticated
+      const authToken = localStorage.getItem("token");
+
+      if (authToken) {
+        try {
+          console.log("User authenticated, initializing notifications...");
+          await initializeNotifications();
+        } catch (error) {
+          console.error(
+            "Failed to setup notifications for authenticated user:",
+            error
+          );
+        }
+      }
+    };
+
+    // Small delay to ensure auth state is properly set
+    const timer = setTimeout(setupNotificationsForAuthenticatedUser, 1000);
+
+    return () => clearTimeout(timer);
+  }, []); // You can add dependency like [user] if you have auth context
+
   return (
     <>
-      <NotificationHandler />
       <Toaster position="top-center" reverseOrder={false} />
       <Routes>
         {/* Public routes */}
@@ -63,7 +101,6 @@ function App() {
           }
         />
 
-        {/* Default redirect: if they visit root, send them to /home */}
         <Route path="/" element={<Login />} />
       </Routes>
     </>

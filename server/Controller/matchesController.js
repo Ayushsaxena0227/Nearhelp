@@ -88,47 +88,66 @@ export const getMessages = async (req, res) => {
 // 3) Send a new message
 export const sendMessage = async (req, res) => {
   try {
-    const uid = req.user.uid;
     const { matchId } = req.params;
     const { text } = req.body;
+    const senderUid = req.user.uid;
+    const senderName = req.user.name || "A user"; // Get sender's name from token
+
     if (!text) {
-      return res.status(400).json({ error: "Message text is required" });
+      return res.status(400).json({ error: "Message text is required." });
     }
 
-    // Verify membership in match
-    const matchSnap = await admin
-      .firestore()
-      .collection("matches")
-      .doc(matchId)
-      .get();
+    const db = admin.firestore();
+    const matchRef = db.collection("matches").doc(matchId);
+    const messagesRef = matchRef.collection("messages");
+
+    const matchSnap = await matchRef.get();
     if (!matchSnap.exists) {
-      return res.status(404).json({ error: "Match not found" });
+      return res.status(404).json({ error: "Match not found." });
     }
-    const match = matchSnap.data();
-    if (match.seekerUid !== uid && match.helperUid !== uid) {
-      return res.status(403).json({ error: "Not authorized" });
-    }
+    const matchData = matchSnap.data();
 
-    // Create message doc
-    const msgId = uuidv4();
-    const msgData = {
-      msgId,
-      senderUid: uid,
+    // 1. Determine who the receiver is
+    const receiverUid =
+      senderUid === matchData.seekerUid
+        ? matchData.helperUid
+        : matchData.seekerUid;
+
+    // 2. Save the new message to Firestore
+    const newMessage = {
       text,
+      senderUid,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
-    await admin
-      .firestore()
-      .collection("matches")
-      .doc(matchId)
-      .collection(MESSAGES_SUBCOL)
-      .doc(msgId)
-      .set(msgData);
+    await messagesRef.add(newMessage);
 
-    res.json(msgData);
+    // 3. --- NEW: Send Push Notification ---
+    const receiverProfileSnap = await db
+      .collection("users")
+      .doc(receiverUid)
+      .get();
+    if (receiverProfileSnap.exists) {
+      const receiverData = receiverProfileSnap.data();
+      // Check if the receiver has a notification token
+      if (receiverData.fcmToken) {
+        const messagePayload = {
+          notification: {
+            title: `New Message from ${senderName}`,
+            body: text,
+          },
+          token: receiverData.fcmToken,
+        };
+
+        await admin.messaging().send(messagePayload);
+        console.log(`Notification sent to user: ${receiverUid}`);
+      }
+    }
+    // --- END of new logic ---
+
+    res.status(201).json(newMessage);
   } catch (err) {
     console.error("sendMessage error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 // Get details for a single match

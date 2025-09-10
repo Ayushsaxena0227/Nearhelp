@@ -24,7 +24,8 @@ app.use("/matches", matchesRoutes);
 app.use("/reviews", reviewRoutes);
 app.use("/skills", skillRoutes);
 app.use("/reports", reportRoutes);
-app.use("/sos", sosRoutes); // 👈 Add this line
+app.use("/sos", sosRoutes);
+
 app.get("/", (req, res) => res.send("API is running"));
 
 const PORT = process.env.PORT || 5007;

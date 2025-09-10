@@ -16,6 +16,7 @@ import {
   Shield,
 } from "lucide-react";
 import axios from "axios";
+import { initializeNotifications } from "../../utils/firebase-messaging-config";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -30,6 +31,10 @@ export default function Login() {
       const provider = new GoogleAuthProvider();
       const userCred = await signInWithPopup(auth, provider);
       const token = await userCred.user.getIdToken();
+
+      // Store token in localStorage FIRST
+      localStorage.setItem("token", token);
+
       await axios.post(
         "http://localhost:5007/users/social-login",
         {},
@@ -38,8 +43,18 @@ export default function Login() {
         }
       );
 
+      // Initialize notifications after successful login and token storage
+      try {
+        console.log("Google login successful, initializing notifications...");
+        await initializeNotifications();
+      } catch (notificationError) {
+        console.error("Failed to initialize notifications:", notificationError);
+        // Don't block login if notifications fail
+      }
+
       window.location.href = "/home";
     } catch (err) {
+      console.error("Google login error:", err);
       setError(err.message);
       setIsLoading(false);
     }
@@ -52,16 +67,34 @@ export default function Login() {
     try {
       const userCred = await signInWithEmailAndPassword(auth, email, password);
       const token = await userCred.user.getIdToken();
+
+      // Store token in localStorage FIRST
+      localStorage.setItem("token", token);
+
       const res = await fetch("http://localhost:5007/users/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
+
       if (res.ok && data.uid) {
+        // Initialize notifications after successful login and token storage
+        try {
+          console.log("Email login successful, initializing notifications...");
+          await initializeNotifications();
+        } catch (notificationError) {
+          console.error(
+            "Failed to initialize notifications:",
+            notificationError
+          );
+          // Don't block login if notifications fail
+        }
+
         window.location.href = "/home";
       } else {
         setError("Login failed. Please try again.");
       }
     } catch (err) {
+      console.error("Email login error:", err);
       setError(err.message);
     }
     setIsLoading(false);
