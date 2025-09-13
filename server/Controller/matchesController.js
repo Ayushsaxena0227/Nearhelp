@@ -26,7 +26,7 @@ export const listMatchesForUser = async (req, res) => {
       doc.data()
     );
 
-    // For each match, fetch the *other* user’s name
+    // For each match, fetch the *other* user's name
     const enriched = await Promise.all(
       allMatches.map(async (match) => {
         const otherUid =
@@ -85,6 +85,59 @@ export const getMessages = async (req, res) => {
   }
 };
 
+// Helper function to handle FCM token validation and cleanup
+const sendNotificationSafely = async (
+  fcmToken,
+  messagePayload,
+  receiverUid
+) => {
+  try {
+    await admin.messaging().send(messagePayload);
+    console.log(`✅ Notification sent successfully to user: ${receiverUid}`);
+    return { success: true };
+  } catch (error) {
+    console.error(
+      `❌ Error sending notification to user ${receiverUid}:`,
+      error
+    );
+
+    // Handle invalid token errors
+    if (
+      error.code === "messaging/registration-token-not-registered" ||
+      error.code === "messaging/invalid-registration-token" ||
+      error.code === "messaging/invalid-argument"
+    ) {
+      console.log(`🧹 Cleaning up invalid FCM token for user: ${receiverUid}`);
+
+      // Remove the invalid token from user's profile
+      try {
+        await admin.firestore().collection("users").doc(receiverUid).update({
+          fcmToken: admin.firestore.FieldValue.delete(),
+        });
+        console.log(`✅ Invalid FCM token removed for user: ${receiverUid}`);
+      } catch (cleanupError) {
+        console.error(
+          `❌ Error cleaning up FCM token for user ${receiverUid}:`,
+          cleanupError
+        );
+      }
+
+      return {
+        success: false,
+        error: "invalid_token",
+        message: "FCM token was invalid and has been removed",
+      };
+    }
+
+    // Handle other types of errors (quota exceeded, etc.)
+    return {
+      success: false,
+      error: "send_failed",
+      message: error.message,
+    };
+  }
+};
+
 // 3) Send a new message
 export const sendMessage = async (req, res) => {
   try {
@@ -107,6 +160,16 @@ export const sendMessage = async (req, res) => {
     }
     const matchData = matchSnap.data();
 
+    // Verify user is part of this match
+    if (
+      matchData.seekerUid !== senderUid &&
+      matchData.helperUid !== senderUid
+    ) {
+      return res
+        .status(403)
+        .json({ error: "Not authorized to send messages in this match." });
+    }
+
     // 1. Determine who the receiver is
     const receiverUid =
       senderUid === matchData.seekerUid
@@ -119,32 +182,69 @@ export const sendMessage = async (req, res) => {
       senderUid,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
+
     await messagesRef.add(newMessage);
+    console.log(`💬 Message saved to Firestore for match: ${matchId}`);
 
-    // 3. --- NEW: Send Push Notification ---
-    const receiverProfileSnap = await db
-      .collection("users")
-      .doc(receiverUid)
-      .get();
-    if (receiverProfileSnap.exists) {
-      const receiverData = receiverProfileSnap.data();
-      // Check if the receiver has a notification token
-      if (receiverData.fcmToken) {
-        const messagePayload = {
-          notification: {
-            title: `New Message from ${senderName}`,
-            body: text,
-          },
-          token: receiverData.fcmToken,
-        };
+    // 3. --- IMPROVED: Send Push Notification with error handling ---
+    try {
+      const receiverProfileSnap = await db
+        .collection("users")
+        .doc(receiverUid)
+        .get();
 
-        await admin.messaging().send(messagePayload);
-        console.log(`Notification sent to user: ${receiverUid}`);
+      if (receiverProfileSnap.exists) {
+        const receiverData = receiverProfileSnap.data();
+
+        // Check if the receiver has a notification token
+        if (receiverData.fcmToken) {
+          console.log(
+            `📱 Attempting to send notification to user: ${receiverUid}`
+          );
+
+          const messagePayload = {
+            notification: {
+              title: `New Message from ${senderName}`,
+              body: text.length > 100 ? text.substring(0, 100) + "..." : text,
+            },
+            data: {
+              matchId: matchId,
+              senderUid: senderUid,
+              senderName: senderName,
+              type: "chat_message",
+            },
+            token: receiverData.fcmToken,
+          };
+
+          const notificationResult = await sendNotificationSafely(
+            receiverData.fcmToken,
+            messagePayload,
+            receiverUid
+          );
+
+          if (!notificationResult.success) {
+            console.log(
+              `⚠️ Notification failed: ${notificationResult.message}`
+            );
+          }
+        } else {
+          console.log(`📱 No FCM token found for user: ${receiverUid}`);
+        }
+      } else {
+        console.log(`👤 Receiver profile not found: ${receiverUid}`);
       }
+    } catch (notificationError) {
+      // Don't fail the entire request if notification fails
+      console.error("❌ Error in notification process:", notificationError);
     }
-    // --- END of new logic ---
+    // --- END of improved notification logic ---
 
-    res.status(201).json(newMessage);
+    // Return success response (even if notification failed)
+    res.status(201).json({
+      ...newMessage,
+      createdAt: new Date().toISOString(), // Return a serializable timestamp
+      success: true,
+    });
   } catch (err) {
     console.error("sendMessage error:", err);
     res.status(500).json({ error: "Internal server error" });

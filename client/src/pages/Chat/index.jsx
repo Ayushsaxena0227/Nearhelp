@@ -24,6 +24,7 @@ import { auth } from "../../utils/firebase";
 import { getMatchDetailsAPI, sendMessage } from "../../api/matches"; // 1. Import sendMessage
 import ReviewModal from "../../components/ReviewModal";
 import { formatDistanceToNow } from "date-fns";
+import { sendMessageWithRetry } from "../../utils/messageSender";
 
 export default function Chat() {
   const { matchId } = useParams();
@@ -72,20 +73,37 @@ export default function Chat() {
     inputRef.current?.focus();
   }, []);
 
-  // 👇 2. UPDATED: This function now correctly calls your backend API
-  const handleSend = async (e) => {
-    e.preventDefault();
-    const trimmedInput = input.trim();
-    if (!trimmedInput) return;
+  const handleSend = async () => {
+    if (!messages.trim()) return;
 
-    setInput(""); // Clear input immediately for a snappy UI
+    const messageToSend = newMessage.trim();
+    setMessages(""); // Clear input immediately
+    setIsSending(true);
+
     try {
-      // Call the backend API to send the message and trigger the notification
-      await sendMessage(matchId, trimmedInput);
+      const result = await sendMessageWithRetry(matchId, messageToSend);
+
+      // Optionally add the message to local state immediately for better UX
+      setMessages((prev) => [
+        ...prev,
+        {
+          text: messageToSend,
+          senderUid: currentUserUid,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+
+      console.log("Message sent:", result);
     } catch (error) {
       console.error("Failed to send message:", error);
-      setInput(trimmedInput); // Restore input if sending fails
+
+      // Show error to user
       alert("Message could not be sent. Please try again.");
+
+      // Restore the message to input if user wants to retry
+      setMessages(messageToSend);
+    } finally {
+      setIsSending(false);
     }
   };
 

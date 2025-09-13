@@ -1,11 +1,12 @@
 // firebase-messaging-sw.js (place this file in your public folder)
-
 importScripts(
   "https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"
 );
 importScripts(
   "https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js"
 );
+
+console.log("Firebase Messaging Service Worker loaded");
 
 firebase.initializeApp({
   apiKey: "AIzaSyCuaVtSTExoSfPE7V799Fd_KFrm-hSphRA",
@@ -32,6 +33,8 @@ messaging.onBackgroundMessage((payload) => {
     badge: "/help.png",
     tag: "nearhelp-notification",
     requireInteraction: true,
+    silent: false,
+    vibrate: [200, 100, 200],
     actions: [
       {
         action: "open",
@@ -43,6 +46,8 @@ messaging.onBackgroundMessage((payload) => {
       url: payload.data?.url || "/",
     },
   };
+
+  console.log("Showing notification:", notificationTitle, notificationOptions);
 
   return self.registration.showNotification(
     notificationTitle,
@@ -58,6 +63,7 @@ self.addEventListener("notificationclick", (event) => {
 
   if (event.action === "open" || !event.action) {
     const urlToOpen = event.notification.data?.url || "/";
+    console.log("Opening URL:", urlToOpen);
 
     event.waitUntil(
       clients
@@ -66,21 +72,46 @@ self.addEventListener("notificationclick", (event) => {
           includeUncontrolled: true,
         })
         .then((clientList) => {
+          console.log("Found clients:", clientList.length);
+
           // If a window is already open, focus it
           for (const client of clientList) {
             if (
               client.url.includes(urlToOpen.split("/")[1]) &&
               "focus" in client
             ) {
+              console.log("Focusing existing client:", client.url);
               return client.focus();
             }
           }
 
           // If no window is open, open a new one
           if (clients.openWindow) {
+            console.log("Opening new window:", urlToOpen);
             return clients.openWindow(urlToOpen);
           }
+        })
+        .catch((error) => {
+          console.error("Error handling notification click:", error);
         })
     );
   }
 });
+
+// Add install and activate event listeners for debugging
+self.addEventListener("install", (event) => {
+  console.log("Service Worker installing");
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  console.log("Service Worker activating");
+  event.waitUntil(clients.claim());
+});
+
+// Add error handler
+self.addEventListener("error", (error) => {
+  console.error("Service Worker error:", error);
+});
+
+console.log("Firebase Messaging Service Worker setup complete");
