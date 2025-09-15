@@ -163,3 +163,20 @@ export const updateFCMToken = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+export const updateLastSeen = async (req, res) => {
+  try {
+    const uid = req.user.uid; // From your auth middleware
+
+    await admin.firestore().collection("users").doc(uid).set(
+      {
+        lastSeen: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    res.json({ message: "LastSeen updated successfully" });
+  } catch (error) {
+    console.error("Error updating lastSeen:", error);
+    res.status(500).json({ error: "Failed to update lastSeen" });
+  }
+};

@@ -9,6 +9,7 @@ const VAPID_KEY =
 
 // Store the current token to avoid unnecessary updates
 let currentToken = null;
+let tokenRefreshInterval = null;
 
 // Initialize notifications
 export const initializeNotifications = async () => {
@@ -54,8 +55,8 @@ export const initializeNotifications = async () => {
           // Set up foreground message handling
           handleForegroundMessages();
 
-          // Set up token refresh handling
-          setupTokenRefresh();
+          // Set up periodic token refresh (every 1 hour)
+          setupPeriodicTokenRefresh();
 
           return token;
         } else {
@@ -76,23 +77,31 @@ export const initializeNotifications = async () => {
   }
 };
 
-// Handle token refresh
-const setupTokenRefresh = () => {
-  onTokenRefresh(messaging, async (refreshedToken) => {
-    console.log("🔄 Token refreshed:", refreshedToken);
+// Set up periodic token refresh
+const setupPeriodicTokenRefresh = () => {
+  // Clear existing interval if any
+  if (tokenRefreshInterval) {
+    clearInterval(tokenRefreshInterval);
+  }
 
-    if (refreshedToken !== currentToken) {
-      currentToken = refreshedToken;
-      console.log("📱 Updating backend with new token...");
+  // Refresh token every hour
+  tokenRefreshInterval = setInterval(async () => {
+    console.log("🔄 Periodic token refresh check...");
 
-      const success = await updateUserFCMToken(refreshedToken);
-      if (success) {
-        console.log("✅ Backend updated with refreshed token");
-      } else {
-        console.error("❌ Failed to update backend with refreshed token");
+    try {
+      const newToken = await getToken(messaging, {
+        vapidKey: VAPID_KEY,
+      });
+
+      if (newToken && newToken !== currentToken) {
+        console.log("🔄 Token changed, updating backend...");
+        currentToken = newToken;
+        await updateUserFCMToken(newToken);
       }
+    } catch (error) {
+      console.error("Error during periodic token refresh:", error);
     }
-  });
+  }, 60 * 60 * 1000); // 1 hour
 };
 
 // Handle foreground messages with better debugging
@@ -242,6 +251,15 @@ export const refreshFCMToken = async () => {
     console.error("Error refreshing FCM token:", error);
     return false;
   }
+};
+
+// Cleanup function to call when user logs out
+export const cleanupNotifications = () => {
+  if (tokenRefreshInterval) {
+    clearInterval(tokenRefreshInterval);
+    tokenRefreshInterval = null;
+  }
+  currentToken = null;
 };
 
 // Get current token

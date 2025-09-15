@@ -21,7 +21,7 @@ import {
   doc,
 } from "firebase/firestore";
 import { auth } from "../../utils/firebase";
-import { getMatchDetailsAPI, sendMessage } from "../../api/matches"; // 1. Import sendMessage
+import { getMatchDetailsAPI, sendMessage } from "../../api/matches";
 import ReviewModal from "../../components/ReviewModal";
 import { formatDistanceToNow } from "date-fns";
 import { sendMessageWithRetry } from "../../utils/messageSender";
@@ -29,12 +29,16 @@ import { sendMessageWithRetry } from "../../utils/messageSender";
 export default function Chat() {
   const { matchId } = useParams();
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(""); // Fixed: was using undefined variable names
   const [match, setMatch] = useState(null);
+  const [isSending, setIsSending] = useState(false); // Added missing state
   const db = getFirestore();
   const bottomRef = useRef();
   const inputRef = useRef();
   const [showReviewModal, setShowReviewModal] = useState(false);
+
+  // Get current user UID safely
+  const currentUserUid = auth.currentUser?.uid;
 
   useEffect(() => {
     if (!matchId) return;
@@ -73,35 +77,38 @@ export default function Chat() {
     inputRef.current?.focus();
   }, []);
 
-  const handleSend = async () => {
-    if (!messages.trim()) return;
+  const handleSend = async (e) => {
+    if (e) {
+      e.preventDefault();
+    }
 
-    const messageToSend = newMessage.trim();
-    setMessages(""); // Clear input immediately
+    // Fixed: Use correct variable name and ensure it's a string
+    const messageToSend = String(input || "").trim();
+
+    if (!messageToSend || isSending) {
+      return;
+    }
+
+    // Clear input immediately for better UX
+    setInput("");
     setIsSending(true);
 
     try {
+      // Use the API function or the retry utility
       const result = await sendMessageWithRetry(matchId, messageToSend);
 
-      // Optionally add the message to local state immediately for better UX
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: messageToSend,
-          senderUid: currentUserUid,
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-
       console.log("Message sent:", result);
+
+      // Note: Don't manually add to messages array since Firestore listener will handle it
+      // This prevents duplicate messages
     } catch (error) {
       console.error("Failed to send message:", error);
 
-      // Show error to user
+      // Show error to user (you might want to use a toast notification instead)
       alert("Message could not be sent. Please try again.");
 
       // Restore the message to input if user wants to retry
-      setMessages(messageToSend);
+      setInput(messageToSend);
     } finally {
       setIsSending(false);
     }
@@ -113,7 +120,12 @@ export default function Chat() {
 
   const formatTime = (date) => {
     if (!date) return "";
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    // Handle both Date objects and timestamp strings
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return dateObj.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const getMessageStatus = (message) => {
@@ -126,6 +138,17 @@ export default function Chat() {
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="mt-2 text-gray-600">Loading chat...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Safety check for auth.currentUser
+  if (!auth.currentUser) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <p className="text-gray-600">Please log in to view chat.</p>
         </div>
       </div>
     );
@@ -146,7 +169,7 @@ export default function Chat() {
         <div className="flex items-center space-x-3">
           <button
             onClick={() => window.history.back()}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors lg:hidden"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors "
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -285,7 +308,7 @@ export default function Chat() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  handleSend(e);
+                  handleSend();
                 }
               }}
               placeholder="Type a message..."
@@ -296,18 +319,23 @@ export default function Chat() {
                 e.target.style.height =
                   Math.min(e.target.scrollHeight, 128) + "px";
               }}
+              disabled={isSending} // Disable input while sending
             />
           </div>
           <button
             type="submit"
-            disabled={!input.trim()}
+            disabled={!input.trim() || isSending}
             className={`p-3 rounded-full transition-all ${
-              input.trim()
-                ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+              input.trim() && !isSending
+                ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:from-blue-600 hover:to-blue-700"
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
           >
-            <Send className="w-5 h-5" />
+            {isSending ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
           </button>
         </form>
         <p className="text-xs text-gray-400 mt-2 text-center">
