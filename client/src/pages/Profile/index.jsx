@@ -64,6 +64,7 @@ export default function ProfilePage() {
         setLoading(true);
         const data = await getUserProfileAPI(userId);
         setProfile(data);
+        console.log(data);
       } catch (error) {
         console.error("Failed to fetch profile:", error);
       } finally {
@@ -126,7 +127,7 @@ export default function ProfilePage() {
             <Briefcase size={24} className="mr-3 text-purple-600" />
             Skills Offered
           </h2>
-          {profile.skills && profile.skills.length > 0 ? (
+          {profile?.skills > 0 ? (
             <div className="space-y-4">
               {profile.skills.map((skill) => (
                 <div
