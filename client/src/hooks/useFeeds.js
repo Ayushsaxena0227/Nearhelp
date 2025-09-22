@@ -10,21 +10,21 @@ export default function useFeeds(location, radius) {
   const loadFeeds = async () => {
     setLoading(true);
     try {
-      if (location) {
-        const [needs, skillList] = await Promise.all([
+      let needs, skillList;
+
+      // ✅ Case 1 & 2: No location OR radius is null → load all
+      if (!location || radius === null) {
+        [needs, skillList] = await Promise.all([getNeedsAPI(), getSkillsAPI()]);
+      } else {
+        // ✅ Case 3: location + radius → do nearby filter
+        [needs, skillList] = await Promise.all([
           getNearbyNeedsAPI(location, radius),
           getNearbySkillsAPI(location, radius),
         ]);
-        setPosts(needs);
-        setSkills(skillList);
-      } else {
-        const [needs, skillList] = await Promise.all([
-          getNeedsAPI(),
-          getSkillsAPI(),
-        ]);
-        setPosts(needs);
-        setSkills(skillList);
       }
+
+      setPosts(needs);
+      setSkills(skillList);
     } catch (e) {
       console.error("Error fetching feeds:", e);
       setPosts([]);

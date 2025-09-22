@@ -23,12 +23,16 @@ export default function HomePage() {
     updateLocation,
     setLocation,
   } = useUserLocation();
+  const [locationRadius, setLocationRadius] = useState(null); // null = show all
+
   const {
     posts,
     skills,
     loading: feedsLoading,
     reload,
-  } = useFeeds(location, 10);
+  } = useFeeds(location, locationRadius);
+  const [showLocationSettings, setShowLocationSettings] = useState(false);
+
   const { profile, matches, appliedNeedIds, setAppliedNeedIds } =
     useProfile(user);
   const appCount = useApplications(user);
@@ -65,6 +69,8 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
+        view={view}
+        setView={setView}
         initials={initials}
         displayName={displayName}
         email={user.email}
@@ -80,10 +86,15 @@ export default function HomePage() {
         onLogout={handleLogout}
         locationLoading={locationLoading}
         userLocation={location}
-        locationRadius={10}
+        locationRadius={locationRadius}
+        setLocationRadius={setLocationRadius}
+        showLocationSettings={showLocationSettings}
+        toggleLocationSettings={() =>
+          setShowLocationSettings(!showLocationSettings)
+        }
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-        clearLocationFilter={() => setLocation(null)}
+        clearLocationFilter={() => setLocationRadius(null)}
         getCurrentLocation={updateLocation}
       />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -92,6 +103,34 @@ export default function HomePage() {
           skills={skills}
           activeMatchCount={activeMatchCount}
         />
+
+        {/* --- Tab Switcher Below StatsOverview, bottom-right aligned --- */}
+        <div className="flex justify-end items-center mt-4 mb-6">
+          <div className="flex space-x-2 p-1 bg-white/80 backdrop-blur-md shadow-lg rounded-full border">
+            <button
+              onClick={() => setView("needs")}
+              className={`px-4 py-2.5 text-sm font-semibold rounded-full transition-all ${
+                view === "needs"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Needs
+            </button>
+            <button
+              onClick={() => setView("skills")}
+              className={`px-4 py-2.5 text-sm font-semibold rounded-full transition-all ${
+                view === "skills"
+                  ? "bg-purple-600 text-white shadow-md"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Skills
+            </button>
+          </div>
+        </div>
+
+        {/* Feed list follows */}
         <div>
           {feedsLoading ? (
             <p>Loading...</p>

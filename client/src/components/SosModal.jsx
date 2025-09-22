@@ -44,7 +44,7 @@ export default function SOSModal({ onClose, onPostCreated }) {
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg relative border-4 border-red-500 animate-fade-in-up">
+      <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 w-full max-w-lg relative animate-fade-in-up">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"

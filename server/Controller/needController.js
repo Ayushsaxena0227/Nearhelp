@@ -55,7 +55,7 @@ export const createNeed = async (req, res) => {
 // This function now handles both location-based and general queries
 export const getNeeds = async (req, res) => {
   try {
-    const { userLat, userLon, radius = 25 } = req.query;
+    let { userLat, userLon, radius } = req.query; // no default here
     const snapshot = await admin
       .firestore()
       .collection("needs")
@@ -64,7 +64,6 @@ export const getNeeds = async (req, res) => {
 
     let needs = snapshot.docs.map((doc) => {
       const data = doc.data();
-      // ✅ THIS IS THE FIX: We add .toDate() to correctly format the timestamp
       const formattedData = {
         ...data,
         createdAt: data.createdAt ? data.createdAt.toDate() : null,
@@ -84,9 +83,11 @@ export const getNeeds = async (req, res) => {
       return formattedData;
     });
 
-    if (userLat && userLon) {
+    if (userLat && userLon && radius) {
       const userLatitude = parseFloat(userLat);
       const userLongitude = parseFloat(userLon);
+      const maxRadius = parseFloat(radius);
+
       needs = needs
         .map((need) => {
           if (!need.location?.latitude) return { ...need, distance: Infinity };
@@ -98,9 +99,10 @@ export const getNeeds = async (req, res) => {
           );
           return { ...need, distance };
         })
-        .filter((need) => need.distance <= parseFloat(radius))
+        .filter((need) => need.distance <= maxRadius)
         .sort((a, b) => a.distance - b.distance);
     }
+
     res.status(200).json(needs);
   } catch (err) {
     res.status(500).json({ error: err.message });
