@@ -10,8 +10,6 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { SendToBack } from "lucide-react";
-import { SendToBackIcon } from "lucide-react";
 
 export default function MyApplications() {
   const [applications, setApplications] = useState([]);
@@ -23,7 +21,6 @@ export default function MyApplications() {
     setLoading(true);
     try {
       const data = await getApplicationsForOwner();
-      // console.log("Applications data:", data);
       setApplications(data);
     } catch (error) {
       console.error("Error loading applications:", error);
@@ -34,235 +31,190 @@ export default function MyApplications() {
   useEffect(() => {
     load();
   }, []);
+
   const handleApplicationAccepted = (matchId) => {
-    if (matchId) {
-      // If a matchId is returned, navigate directly to the chat
-      navigate(`/chat/${matchId}`);
-    } else {
-      // Otherwise, just refresh the list (fallback)
-      load();
-    }
+    if (matchId) navigate(`/chat/${matchId}`);
+    else load();
   };
 
-  // Filter applications based on selected filter
+  // Filtering logic
   const filteredApplications = applications.filter((app) => {
     if (filter === "all") return true;
     return app.status === filter;
   });
 
-  // Count applications by status
+  // Status counts
   const statusCounts = applications.reduce((acc, app) => {
     acc[app.status] = (acc[app.status] || 0) + 1;
     return acc;
   }, {});
 
-  // Skeleton Loader Component
+  // Skeleton shimmer card
   const SkeletonCard = () => (
-    <div className="bg-white p-6 rounded-xl shadow-sm animate-pulse">
+    <div className="bg-white/70 backdrop-blur-md p-6 rounded-2xl shadow animate-pulse">
       <div className="flex items-start space-x-4">
-        <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+        <div className="w-12 h-12 bg-gradient-to-r from-slate-200 to-slate-300 rounded-full"></div>
         <div className="flex-1 space-y-3">
-          <div className="flex justify-between items-start">
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-32"></div>
-              <div className="h-3 bg-gray-200 rounded w-24"></div>
-            </div>
-            <div className="h-6 bg-gray-200 rounded-full w-20"></div>
-          </div>
-          <div className="h-4 bg-gray-200 rounded w-full"></div>
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-          <div className="flex space-x-2 mt-4">
-            <div className="h-8 bg-gray-200 rounded w-20"></div>
-            <div className="h-8 bg-gray-200 rounded w-20"></div>
-          </div>
+          <div className="h-4 bg-gradient-to-r from-slate-200 to-slate-300 rounded w-1/3"></div>
+          <div className="h-3 bg-gradient-to-r from-slate-200 to-slate-300 rounded w-1/2"></div>
+          <div className="h-4 bg-gradient-to-r from-slate-200 to-slate-300 rounded w-full"></div>
         </div>
       </div>
     </div>
   );
 
-  const getFilterIcon = (filterType) => {
-    switch (filterType) {
-      case "pending":
-        return <Clock className="w-4 h-4" />;
-      case "accepted":
-        return <CheckCircle className="w-4 h-4" />;
-      case "rejected":
-        return <XCircle className="w-4 h-4" />;
-      default:
-        return <MessageSquare className="w-4 h-4" />;
-    }
-  };
-
+  // Return UI
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div className="mb-4 sm:mb-0">
-              <button onClick={() => navigate(-1)}>
-                <ArrowLeft className="cursor-pointer" />
-              </button>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Applications on My Posts
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Manage applications from people who want to help you
-              </p>
-            </div>
-
-            {!loading && applications.length > 0 && (
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <Users className="w-4 h-4" />
-                <span>{applications.length} total applications</span>
-              </div>
-            )}
+      <div className="sticky top-0 z-20 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow">
+        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+          <div>
+            <button
+              onClick={() => navigate(-1)}
+              className="mb-1 flex items-center text-slate-600 hover:text-slate-900"
+            >
+              <ArrowLeft className="w-5 h-5 mr-2" /> Back
+            </button>
+            <h1 className="text-2xl font-bold text-slate-800">
+              Applications on My Posts
+            </h1>
+            <p className="text-slate-500 text-sm">
+              Manage applications from people who want to help you
+            </p>
           </div>
+          {!loading && applications.length > 0 && (
+            <div className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 rounded-xl shadow">
+              <Users className="w-4 h-4" />
+              <span>{applications.length} total</span>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
+        {/* Stats overview cards */}
         {!loading && applications.length > 0 && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
-              <div className="flex items-center justify-between">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                label: "Total",
+                value: applications.length,
+                icon: MessageSquare,
+                color: "from-blue-500 to-cyan-500",
+              },
+              {
+                label: "Pending",
+                value: statusCounts.pending || 0,
+                icon: Clock,
+                color: "from-yellow-400 to-orange-400",
+              },
+              {
+                label: "Accepted",
+                value: statusCounts.accepted || 0,
+                icon: CheckCircle,
+                color: "from-green-500 to-emerald-500",
+              },
+              {
+                label: "Rejected",
+                value: statusCounts.rejected || 0,
+                icon: XCircle,
+                color: "from-red-500 to-pink-500",
+              },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="p-5 bg-white/70 backdrop-blur-md rounded-2xl shadow hover:shadow-xl transition border border-white/40 flex justify-between items-center"
+              >
                 <div>
-                  <p className="text-sm text-gray-600">Total</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {applications.length}
+                  <p className="text-sm text-slate-500">{stat.label}</p>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {stat.value}
                   </p>
                 </div>
-                <MessageSquare className="w-8 h-8 text-blue-500" />
+                <stat.icon
+                  className={`w-10 h-10 text-white p-2 rounded-xl bg-gradient-to-r ${stat.color}`}
+                />
               </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Pending</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {statusCounts.pending || 0}
-                  </p>
-                </div>
-                <Clock className="w-8 h-8 text-yellow-500" />
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Accepted</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {statusCounts.accepted || 0}
-                  </p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-green-500" />
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Rejected</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {statusCounts.rejected || 0}
-                  </p>
-                </div>
-                <XCircle className="w-8 h-8 text-red-500" />
-              </div>
-            </div>
+            ))}
           </div>
         )}
 
         {/* Filter Tabs */}
         {!loading && applications.length > 0 && (
-          <div className="mb-6">
-            <div className="flex flex-wrap gap-2">
-              {[
-                {
-                  key: "all",
-                  label: "All Applications",
-                  count: applications.length,
-                },
-                {
-                  key: "pending",
-                  label: "Pending",
-                  count: statusCounts.pending || 0,
-                },
-                {
-                  key: "accepted",
-                  label: "Accepted",
-                  count: statusCounts.accepted || 0,
-                },
-                {
-                  key: "rejected",
-                  label: "Rejected",
-                  count: statusCounts.rejected || 0,
-                },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setFilter(tab.key)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    filter === tab.key
-                      ? "bg-blue-100 text-blue-700 border border-blue-200"
-                      : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  {getFilterIcon(tab.key)}
-                  <span>{tab.label}</span>
-                  {tab.count > 0 && (
-                    <span
-                      className={`px-2 py-0.5 text-xs rounded-full ${
-                        filter === tab.key
-                          ? "bg-blue-200 text-blue-800"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-wrap gap-3">
+            {[
+              { key: "all", label: "All", count: applications.length },
+              {
+                key: "pending",
+                label: "Pending",
+                count: statusCounts.pending || 0,
+              },
+              {
+                key: "accepted",
+                label: "Accepted",
+                count: statusCounts.accepted || 0,
+              },
+              {
+                key: "rejected",
+                label: "Rejected",
+                count: statusCounts.rejected || 0,
+              },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setFilter(tab.key)}
+                className={`relative px-5 py-2 text-sm font-bold rounded-xl transition-all duration-500 ${
+                  filter === tab.key
+                    ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow"
+                    : "bg-white/70 text-slate-600 border border-white/30 hover:bg-white hover:text-slate-900"
+                }`}
+              >
+                {tab.label}{" "}
+                {tab.count > 0 && (
+                  <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-slate-200">
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         )}
 
-        {/* Content */}
+        {/* Applications list */}
         {loading ? (
           <div className="space-y-6">
             <SkeletonCard />
             <SkeletonCard />
-            <SkeletonCard />
           </div>
         ) : applications.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <MessageSquare className="w-12 h-12 text-gray-400" />
+          <div className="text-center py-20 bg-white/70 backdrop-blur-md rounded-2xl shadow border border-white/40">
+            <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-r from-slate-200 to-slate-300 flex items-center justify-center mb-6">
+              <MessageSquare className="w-12 h-12 text-slate-500" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+            <h3 className="text-xl font-bold text-slate-800 mb-2">
               No applications yet
             </h3>
-            <p className="text-gray-600 max-w-md mx-auto">
-              When people apply to help with your posts, their applications will
-              appear here. Make sure your posts are clear and engaging to
-              attract helpers!
+            <p className="text-slate-500">
+              When people apply to help, their applications will appear here.
             </p>
           </div>
         ) : filteredApplications.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              {getFilterIcon(filter)}
+          <div className="text-center py-20 bg-white/70 backdrop-blur-md rounded-2xl shadow border border-white/40">
+            <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-r from-slate-200 to-slate-300 flex items-center justify-center mb-6">
+              {filter === "pending" && (
+                <Clock className="w-12 h-12 text-yellow-500" />
+              )}
+              {filter === "accepted" && (
+                <CheckCircle className="w-12 h-12 text-green-500" />
+              )}
+              {filter === "rejected" && (
+                <XCircle className="w-12 h-12 text-red-500" />
+              )}
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">
-              No {filter !== "all" ? filter : ""} applications
+            <h3 className="text-xl font-bold text-slate-800 mb-2">
+              No {filter} applications
             </h3>
-            <p className="text-gray-600">
-              {filter === "pending" && "No pending applications at the moment."}
-              {filter === "accepted" && "No accepted applications yet."}
-              {filter === "rejected" && "No rejected applications."}
-            </p>
           </div>
         ) : (
           <ApplicationsList

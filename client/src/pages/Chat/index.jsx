@@ -134,11 +134,10 @@ export default function Chat() {
 
   if (!match) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading chat...</p>
-        </div>
+      <div className="flex justify-center items-center h-screen space-x-2">
+        <div className="w-4 h-4 bg-blue-500 rounded-full animate-bounce"></div>
+        <div className="w-4 h-4 bg-blue-500 rounded-full animate-bounce [animation-delay:200ms]"></div>
+        <div className="w-4 h-4 bg-blue-500 rounded-full animate-bounce [animation-delay:400ms]"></div>
       </div>
     );
   }
