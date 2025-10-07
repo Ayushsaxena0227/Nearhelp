@@ -5,13 +5,11 @@ import {
   ChevronDown,
   Siren,
   Search,
-  Plus,
   Bell,
   FileText,
   User,
   MessageSquare,
   LogOut,
-  Navigation,
   XCircle,
   MapPin,
   Settings,
@@ -20,7 +18,7 @@ import {
 } from "lucide-react";
 import Nearhelp_logo from "../../../assets/Nearhelp_logo/help.png";
 
-export default function Header({
+function Header({
   initials,
   displayName,
   email,
@@ -47,9 +45,9 @@ export default function Header({
   return (
     <header className="bg-gradient-to-r from-white via-slate-50 to-white backdrop-blur-xl sticky top-0 z-40 border-b border-slate-200/60 shadow-lg shadow-slate-200/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18 py-2">
+        <div className="flex items-center justify-between h-18 py-2 gap-4">
           {/* Logo + SOS */}
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-4 flex-shrink-0">
             <Link to="/home" className="flex items-center space-x-3 group">
               <div className="relative">
                 <img
@@ -59,13 +57,13 @@ export default function Header({
                 />
                 <div className="absolute inset-0 bg-blue-400 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent whitespace-nowrap">
                 NearHelp
               </span>
             </Link>
             <button
               onClick={onSetShowSOS}
-              className="px-4 py-2.5 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white rounded-2xl flex items-center shadow-lg hover:shadow-xl transition-all duration-300 text-sm font-bold animate-pulse hover:animate-none hover:scale-105 group"
+              className="px-4 py-2.5 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white rounded-2xl flex items-center shadow-lg hover:shadow-xl transition-all duration-300 text-sm font-bold animate-pulse hover:animate-none hover:scale-105 group whitespace-nowrap"
             >
               <Siren
                 size={18}
@@ -76,26 +74,25 @@ export default function Header({
           </div>
 
           {/* Search */}
-          <div className="flex-1 max-w-xl mx-8 relative group">
+          <div className="flex-1 min-w-0 max-w-2xl relative group">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 rounded-2xl opacity-0 group-hover:opacity-20 blur transition-all duration-300"></div>
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors duration-300" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors duration-300 z-10" />
               <input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search for help or skills... ✨"
-                className="w-full pl-12 pr-6 py-3.5 bg-white/80 backdrop-blur-sm border-2 border-slate-200 rounded-2xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all duration-300 font-medium placeholder-slate-400 hover:border-slate-300"
+                placeholder="Search"
+                className="w-[130px] pl-12 pr-6 py-3.5 bg-white/80 backdrop-blur-sm border-2 border-slate-200 rounded-2xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all duration-300 font-medium placeholder-slate-400 hover:border-slate-300"
               />
             </div>
           </div>
-
           {/* Right-side buttons */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 flex-shrink-0">
             {/* Location Controls */}
             <div className="relative">
               <button
                 onClick={toggleLocationSettings}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-2xl text-sm transition-all duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105 ${
+                className={`flex items-center space-x-2 px-4 py-3 rounded-2xl text-sm transition-all duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105 whitespace-nowrap ${
                   userLocation
                     ? "bg-gradient-to-r from-emerald-400 to-cyan-500 text-white hover:from-emerald-500 hover:to-cyan-600"
                     : "bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700 hover:from-slate-200 hover:to-slate-300"
@@ -105,7 +102,7 @@ export default function Header({
                 <MapPin
                   className={`w-4 h-4 ${locationLoading ? "animate-spin" : ""}`}
                 />
-                <span>
+                <span className="hidden lg:inline">
                   {locationLoading
                     ? "Finding..."
                     : userLocation
@@ -170,24 +167,24 @@ export default function Header({
             {/* Action Buttons */}
             <button
               onClick={onSetShowSkill}
-              className="px-5 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-2xl flex items-center text-sm font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 group"
+              className="px-4 lg:px-5 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-2xl flex items-center text-sm font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 group whitespace-nowrap"
             >
               <Sparkles
                 size={16}
                 className="group-hover:rotate-12 transition-transform duration-300"
               />
-              <span className="ml-2 hidden sm:inline">Offer Skill</span>
+              <span className="ml-2 hidden lg:inline">Offer Skill</span>
             </button>
 
             <button
               onClick={onSetShowNeed}
-              className="px-5 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white rounded-2xl flex items-center text-sm font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 group"
+              className="px-4 lg:px-5 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white rounded-2xl flex items-center text-sm font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 group whitespace-nowrap"
             >
               <Zap
                 size={16}
                 className="group-hover:rotate-12 transition-transform duration-300"
               />
-              <span className="ml-2 hidden sm:inline">Request Help</span>
+              <span className="ml-2 hidden lg:inline">Request Help</span>
             </button>
 
             <Link
@@ -215,7 +212,7 @@ export default function Header({
                   <span className="text-white font-bold">{initials}</span>
                 </div>
                 <ChevronDown
-                  className={`w-4 h-4 text-slate-500 transition-all duration-300 ${
+                  className={`w-4 h-4 text-slate-500 transition-all duration-300 hidden lg:block ${
                     openDropdown === "profile" ? "rotate-180 text-blue-500" : ""
                   }`}
                 />
@@ -323,3 +320,5 @@ export default function Header({
     </header>
   );
 }
+
+export default React.memo(Header);

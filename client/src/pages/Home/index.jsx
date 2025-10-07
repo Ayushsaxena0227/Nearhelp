@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useDeferredValue } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { auth } from "../../utils/firebase";
 import useFeeds from "../../hooks/useFeeds";
@@ -14,6 +14,8 @@ import NewPostModal from "../../components/NewPostModal";
 import NewSkillModal from "../../components/SkillModal";
 import ApplyModal from "../../components/ApplyModal";
 
+import { Virtuoso } from "react-virtuoso";
+
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
 
@@ -21,7 +23,6 @@ export default function HomePage() {
     location,
     loading: locationLoading,
     updateLocation,
-    setLocation,
   } = useUserLocation();
   const [locationRadius, setLocationRadius] = useState(null);
 
@@ -33,12 +34,12 @@ export default function HomePage() {
   } = useFeeds(location, locationRadius);
   const [showLocationSettings, setShowLocationSettings] = useState(false);
 
-  const { profile, matches, appliedNeedIds, setAppliedNeedIds } =
-    useProfile(user);
+  const { profile, matches, appliedNeedIds } = useProfile(user);
   const appCount = useApplications(user);
 
   const [view, setView] = useState("needs");
   const [searchTerm, setSearchTerm] = useState("");
+  const deferredSearch = useDeferredValue(searchTerm);
   const [activeItem, setActiveItem] = useState(null);
 
   const [showSOS, setShowSOS] = useState(false);
@@ -46,7 +47,15 @@ export default function HomePage() {
   const [showSkill, setShowSkill] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
 
-  // Loading state
+  // Build the list (hook must be before any conditional returns)
+  const listToRender = useMemo(() => {
+    const base = view === "needs" ? posts : skills;
+    const q = (deferredSearch || "").toLowerCase();
+    if (!q) return base;
+    return base.filter((item) => item.title?.toLowerCase().includes(q));
+  }, [view, posts, skills, deferredSearch]);
+
+  // Loading state (returns are after all hooks)
   if (authLoading)
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -59,7 +68,6 @@ export default function HomePage() {
       </div>
     );
 
-  // User not logged in
   if (!user)
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 flex items-center justify-center">
@@ -130,7 +138,6 @@ export default function HomePage() {
         clearLocationFilter={() => setLocationRadius(null)}
         getCurrentLocation={updateLocation}
       />
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {/* Stats */}
         <div className="mb-8">
@@ -176,7 +183,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Feed List */}
+        {/* Feed List (virtualized) */}
         <div className="relative">
           {feedsLoading ? (
             <div className="text-center py-16">
@@ -188,52 +195,61 @@ export default function HomePage() {
                 Loading amazing opportunities... ✨
               </p>
             </div>
-          ) : (
+          ) : listToRender.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-24 h-24 bg-gradient-to-r from-slate-200 to-slate-300 rounded-3xl mx-auto mb-6 flex items-center justify-center">
+                <span className="text-3xl">🔍</span>
+              </div>
+              <h3 className="text-2xl font-bold text-slate-700 mb-2">
+                No {view === "needs" ? "requests" : "skills"} found
+              </h3>
+              <p className="text-slate-500 font-medium">
+                {deferredSearch
+                  ? `No results for "${deferredSearch}". Try a different search term.`
+                  : `No ${
+                      view === "needs" ? "help requests" : "skills"
+                    } available right now.`}
+              </p>
+            </div>
+          ) : listToRender.length <= 8 ? (
             <div className="space-y-6">
-              {(view === "needs" ? posts : skills)
-                .filter((item) =>
-                  item.title.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map((item, index) => (
-                  <div
-                    key={item.needId || item.skillId}
-                    className="animate-slideInUp"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    <FeedCard
-                      item={item}
-                      type={view}
-                      appliedIds={appliedNeedIds}
-                      onApplyClick={setActiveItem}
-                    />
-                  </div>
-                ))}
-
-              {/* Empty state */}
-              {(view === "needs" ? posts : skills).filter((item) =>
-                item.title.toLowerCase().includes(searchTerm.toLowerCase())
-              ).length === 0 && (
-                <div className="text-center py-16">
-                  <div className="w-24 h-24 bg-gradient-to-r from-slate-200 to-slate-300 rounded-3xl mx-auto mb-6 flex items-center justify-center">
-                    <span className="text-3xl">🔍</span>
-                  </div>
-                  <h3 className="text-2xl font-bold text-slate-700 mb-2">
-                    No {view === "needs" ? "requests" : "skills"} found
-                  </h3>
-                  <p className="text-slate-500 font-medium">
-                    {searchTerm
-                      ? `No results for "${searchTerm}". Try a different search term.`
-                      : `No ${
-                          view === "needs" ? "help requests" : "skills"
-                        } available right now.`}
-                  </p>
+              {listToRender.map((item, index) => (
+                <div
+                  key={item.needId || item.skillId}
+                  className="animate-slideInUp"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <FeedCard
+                    item={item}
+                    type={view}
+                    appliedIds={appliedNeedIds}
+                    onApplyClick={setActiveItem}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Virtuoso
+              useWindowScroll
+              data={listToRender}
+              increaseViewportBy={{ top: 400, bottom: 800 }}
+              itemContent={(index, item) => (
+                <div
+                  className="animate-slideInUp mb-6"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <FeedCard
+                    item={item}
+                    type={view}
+                    appliedIds={appliedNeedIds}
+                    onApplyClick={setActiveItem}
+                  />
                 </div>
               )}
-            </div>
+            />
           )}
         </div>
       </main>
-
       {/* Modals */}
       {showSOS && (
         <SOSModal onClose={() => setShowSOS(false)} onPostCreated={reload} />
@@ -257,7 +273,6 @@ export default function HomePage() {
           onApplySuccess={() => reload()}
         />
       )}
-
       {/* Animations */}
       <style jsx>{`
         @keyframes slideInUp {

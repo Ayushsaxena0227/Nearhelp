@@ -10,6 +10,7 @@ import HomePage from "./pages/Home";
 import ProfilePage from "./pages/Profile";
 import { useEffect, useContext } from "react";
 import { Toaster } from "react-hot-toast";
+
 import {
   handleForegroundMessages,
   initializeNotifications,

@@ -1,76 +1,77 @@
-import React from "react";
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { auth } from "../../../utils/firebase";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import {
-  Bell,
-  ChevronDown,
-  CheckCircle,
-  Clock,
-  FileText,
-  LogOut,
-  MessageSquare,
   MoreVertical,
-  Plus,
-  Search,
-  User,
-  Users,
   Flag,
-  MapPin,
-  Navigation,
-  Settings,
-  XCircle,
   Siren,
-  Sparkles,
-  Heart,
-  Zap,
-  AlertTriangle,
   ShieldCheck,
+  Clock,
+  MapPin,
+  CheckCircle,
+  Heart,
+  Sparkles,
 } from "lucide-react";
 
 // Mock ReportModal component - replace with your actual implementation
-const ReportModal = ({ item, itemType, onClose }) => (
+const ReportModal = React.memo(({ item, itemType, onClose }) => (
   <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
+    {" "}
     <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
-      <h3 className="text-lg font-bold mb-4">Report {itemType}</h3>
+      {" "}
+      <h3 className="text-lg font-bold mb-4">Report {itemType}</h3>{" "}
       <p className="text-gray-600 mb-4">
-        Why are you reporting this {itemType}?
-      </p>
+        {" "}
+        Why are you reporting this {itemType}?{" "}
+      </p>{" "}
       <div className="flex gap-3">
+        {" "}
         <button onClick={onClose} className="px-4 py-2 bg-gray-100 rounded-lg">
-          Cancel
-        </button>
+          {" "}
+          Cancel{" "}
+        </button>{" "}
         <button
           onClick={onClose}
           className="px-4 py-2 bg-red-600 text-white rounded-lg"
         >
-          Report
-        </button>
-      </div>
-    </div>
+          {" "}
+          Report{" "}
+        </button>{" "}
+      </div>{" "}
+    </div>{" "}
   </div>
-);
-
-const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
+));
+function FeedCard({ item, type, appliedIds, onApplyClick }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+
   const isNeed = type === "needs";
   const currentUser = auth.currentUser;
   const isOwnPost = currentUser?.uid === item.ownerUid;
   const isAnonymous = item.ownerUid === "anonymous";
   const isSOS = item.type === "sos";
+  const itemId = item.needId || item.skillId;
 
-  let timeAgo = "Just now";
-  if (item.createdAt) {
-    const date = item.createdAt.seconds
+  // Memoize date -> timeAgo (formatDistanceToNow is relatively expensive)
+  const createdDate = useMemo(() => {
+    if (!item.createdAt) return null;
+    const d = item.createdAt.seconds
       ? new Date(item.createdAt.seconds * 1000)
       : new Date(item.createdAt);
+    return isNaN(d) ? null : d;
+  }, [item.createdAt]);
 
-    if (!isNaN(date)) {
-      timeAgo = formatDistanceToNow(date, { addSuffix: true });
-    }
-  }
+  const timeAgo = useMemo(() => {
+    return createdDate
+      ? formatDistanceToNow(createdDate, { addSuffix: true })
+      : "Just now";
+  }, [createdDate]);
+
+  // Memoize applied state lookup
+  const hasApplied = useMemo(() => {
+    return appliedIds?.has?.(itemId) ?? false;
+  }, [appliedIds, itemId]);
 
   return (
     <div className="group relative animate-fadeInUp">
@@ -108,7 +109,7 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
         {/* Three-dot menu */}
         <div className="absolute top-4 right-4 z-10">
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
+            onClick={() => setMenuOpen((m) => !m)}
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white/60 rounded-full transition-all duration-300 backdrop-blur-sm group-hover:scale-110"
           >
             <MoreVertical size={18} />
@@ -226,7 +227,7 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
               {isNeed ? "Your Request ✨" : "Your Skill ⚡"}
             </div>
           ) : isNeed ? (
-            appliedIds.has(item.needId) ? (
+            hasApplied ? (
               <div className="inline-flex items-center text-sm font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl border border-blue-200">
                 <CheckCircle className="w-4 h-4 mr-2" />
                 Applied Successfully! 🎉
@@ -260,7 +261,6 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
           }`}
         ></div>
       </div>
-
       {showReportModal && (
         <ReportModal
           item={item}
@@ -268,7 +268,6 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
           onClose={() => setShowReportModal(false)}
         />
       )}
-
       <style jsx>{`
         @keyframes fadeInUp {
           from {
@@ -299,6 +298,26 @@ const FeedCard = ({ item, type, appliedIds, onApplyClick }) => {
       `}</style>
     </div>
   );
-};
+}
+// Custom comparator to prevent unnecessary re-renders
+function areEqual(prev, next) {
+  const p = prev.item;
+  const n = next.item;
+  const pId = p.needId || p.skillId;
+  const nId = n.needId || n.skillId;
 
-export default FeedCard;
+  const prevApplied = prev.appliedIds?.has?.(pId) ?? false;
+  const nextApplied = next.appliedIds?.has?.(nId) ?? false;
+
+  return (
+    prev.type === next.type &&
+    pId === nId &&
+    p.title === n.title &&
+    p.description === n.description &&
+    (p.distance ?? null) === (n.distance ?? null) &&
+    (p.type ?? "") === (n.type ?? "") &&
+    prevApplied === nextApplied
+  );
+}
+
+export default React.memo(FeedCard, areEqual);
